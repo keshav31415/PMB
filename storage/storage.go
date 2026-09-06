@@ -9,7 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
 const logDir = "logs"
@@ -21,11 +23,15 @@ type Msg struct {
 	Ts      float64
 }
 
+type writeNode struct {
+	line  string
+	errCh chan error
+	next  *writeNode
+}
+
 type commitGroup struct {
-	mu       sync.Mutex
-	lines    []string
-	pending  []chan error
-	flushing bool
+	head     unsafe.Pointer // *writeNode (atomic Treiber stack)
+	flushing int32          // 1 if active leader flusher, 0 otherwise
 }
 
 type WAL struct {
@@ -88,31 +94,52 @@ func (w *WAL) MarkAcked(topic, msgID string) error {
 
 func (w *WAL) writeLine(topic, line string) error {
 	grp := w.getGroup(topic)
-	errCh := make(chan error, 1)
-
-	grp.mu.Lock()
-	grp.lines = append(grp.lines, line)
-	grp.pending = append(grp.pending, errCh)
-	if grp.flushing {
-		grp.mu.Unlock()
-		return <-errCh
+	node := &writeNode{
+		line:  line,
+		errCh: make(chan error, 1),
 	}
-	grp.flushing = true
-	grp.mu.Unlock()
 
-	// Leader flusher loop: flushes current batch and any subsequent lines queued during fsync
+	// 1. Lock-free Treiber stack push using atomic CAS (Wait-Free Ingress)
 	for {
-		grp.mu.Lock()
-		if len(grp.lines) == 0 {
-			grp.flushing = false
-			grp.mu.Unlock()
+		oldHead := atomic.LoadPointer(&grp.head)
+		node.next = (*writeNode)(oldHead)
+		if atomic.CompareAndSwapPointer(&grp.head, oldHead, unsafe.Pointer(node)) {
 			break
 		}
-		batchLines := grp.lines
-		batchChans := grp.pending
-		grp.lines = nil
-		grp.pending = nil
-		grp.mu.Unlock()
+	}
+
+	// 2. Lock-free leader election: only one goroutine acts as flusher leader
+	if !atomic.CompareAndSwapInt32(&grp.flushing, 0, 1) {
+		// Follower waits on its dedicated channel
+		return <-node.errCh
+	}
+
+	// 3. Leader loop: steals entire accumulated queue and writes in epoch batches
+	for {
+		headPtr := atomic.SwapPointer(&grp.head, nil)
+		if headPtr == nil {
+			atomic.StoreInt32(&grp.flushing, 0)
+			// Close potential race window between Swap and Store
+			if atomic.LoadPointer(&grp.head) != nil && atomic.CompareAndSwapInt32(&grp.flushing, 0, 1) {
+				continue
+			}
+			break
+		}
+
+		var batchLines []string
+		var batchChans []chan error
+		curr := (*writeNode)(headPtr)
+		for curr != nil {
+			batchLines = append(batchLines, curr.line)
+			batchChans = append(batchChans, curr.errCh)
+			curr = curr.next
+		}
+
+		// Reverse linked-list to maintain strict FIFO arrival order
+		for i, j := 0, len(batchLines)-1; i < j; i, j = i+1, j-1 {
+			batchLines[i], batchLines[j] = batchLines[j], batchLines[i]
+			batchChans[i], batchChans[j] = batchChans[j], batchChans[i]
+		}
 
 		err := w.flushBatch(topic, batchLines)
 		for _, ch := range batchChans {
@@ -120,7 +147,7 @@ func (w *WAL) writeLine(topic, line string) error {
 		}
 	}
 
-	return <-errCh
+	return <-node.errCh
 }
 
 func (w *WAL) flushBatch(topic string, lines []string) error {
@@ -207,6 +234,15 @@ func (w *WAL) Recover(topic string) ([]Msg, error) {
 			// Unescape symmetrically — must match the escaping in Append.
 			payload := strings.ReplaceAll(parts[4], "\\|", "|")
 			payload = strings.ReplaceAll(payload, "\\n", "\n")
+
+			// Reconstruct payload if deduplicated via @ref during compaction
+			if strings.HasPrefix(payload, "@ref:") {
+				refID := strings.TrimPrefix(payload, "@ref:")
+				if refMsg, ok := written[refID]; ok {
+					payload = refMsg.Payload
+				}
+			}
+
 			written[parts[1]] = Msg{
 				ID:      parts[1],
 				Topic:   parts[3],
@@ -384,8 +420,39 @@ func (w *WAL) GCByAge(topic string, maxAge time.Duration) (int, error) {
 	}
 
 	sort.Strings(keepLines) // stable ordering for deterministic output
+	compressedLines := deduplicateLines(keepLines)
+	return w.replaceLog(topic, path, compressedLines)
+}
 
-	return w.replaceLog(topic, path, keepLines)
+// deduplicateLines performs payload delta-referencing during GC compaction.
+// If identical or repetitive payloads appear within the compaction window,
+// it stores a lightweight @ref:<msgID> pointer, saving flash storage and write cycles.
+func deduplicateLines(lines []string) []string {
+	seen := map[string]string{}
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		if !strings.HasPrefix(l, "W|") {
+			out = append(out, l)
+			continue
+		}
+		parts := strings.SplitN(strings.TrimRight(l, "\r\n"), "|", 5)
+		if len(parts) < 5 {
+			out = append(out, l)
+			continue
+		}
+		msgID := parts[1]
+		ts := parts[2]
+		topic := parts[3]
+		payload := parts[4]
+
+		if refID, exists := seen[payload]; exists && len(payload) > 12 {
+			out = append(out, fmt.Sprintf("W|%s|%s|%s|@ref:%s\n", msgID, ts, topic, refID))
+		} else {
+			seen[payload] = msgID
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 // compact is the shared helper for GC: closes the write handle, writes a
@@ -401,7 +468,8 @@ func (w *WAL) compact(topic, path string, keep func(id string) bool, rawLines ma
 		}
 	}
 	sort.Strings(keepList)
-	return pruned, w.doReplaceLog(topic, path, keepList)
+	compressedList := deduplicateLines(keepList)
+	return pruned, w.doReplaceLog(topic, path, compressedList)
 }
 
 func (w *WAL) replaceLog(topic, path string, lines []string) (int, error) {

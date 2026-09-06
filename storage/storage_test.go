@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -297,4 +298,53 @@ func TestGroupCommit_ConcurrentScale(t *testing.T) {
 	if len(recovered) != totalMsgs {
 		t.Fatalf("expected %d recovered messages, got %d", totalMsgs, len(recovered))
 	}
+}
+
+func TestGC_DeltaDeduplication(t *testing.T) {
+	defer setup(t)()
+	w := New()
+
+	const repeatedPayload = `{"service":"nutanix-acropolis","status":"healthy","cluster_id":"c-9821"}`
+
+	// Write 5 messages: 3 identical repeated telemetry payloads, 2 unique
+	w.Append("telemetry", "1", repeatedPayload)
+	w.Append("telemetry", "2", repeatedPayload)
+	w.Append("telemetry", "3", repeatedPayload)
+	w.Append("telemetry", "4", "unique_payload_alpha")
+	w.Append("telemetry", "5", "unique_payload_beta")
+
+	// ACK message 5 so GC triggers compaction
+	w.MarkAcked("telemetry", "5")
+
+	pruned, err := w.GC("telemetry")
+	if err != nil {
+		t.Fatalf("gc error: %v", err)
+	}
+	if pruned != 1 {
+		t.Fatalf("expected 1 pruned, got %d", pruned)
+	}
+
+	// Verify all 4 remaining messages recover with full original payloads
+	recovered, err := w.Recover("telemetry")
+	if err != nil {
+		t.Fatalf("recover error: %v", err)
+	}
+	if len(recovered) != 4 {
+		t.Fatalf("expected 4 recovered messages, got %d", len(recovered))
+	}
+
+	for _, m := range recovered {
+		if m.ID == "1" || m.ID == "2" || m.ID == "3" {
+			if m.Payload != repeatedPayload {
+				t.Fatalf("msg %s payload mismatch: got %q, want %q", m.ID, m.Payload, repeatedPayload)
+			}
+		}
+	}
+
+	// Verify the log file on disk actually contains @ref:1
+	rawLog, _ := os.ReadFile(logPath("telemetry"))
+	if !strings.Contains(string(rawLog), "@ref:1") {
+		t.Fatalf("expected log file to contain @ref:1 deduplication reference, got:\n%s", string(rawLog))
+	}
+	t.Logf("Compacted log with Delta Deduplication:\n%s", string(rawLog))
 }
