@@ -149,6 +149,10 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 }
 
+func (s *Server) SetSeq(seq uint64) {
+	atomic.StoreUint64(&s.seq, seq)
+}
+
 func (s *Server) dispatch(cmd *Command, out chan<- string, mu *sync.Mutex, subs map[subKey]chan struct{}) {
 	switch cmd.Type {
 	case CmdPing:
@@ -157,7 +161,10 @@ func (s *Server) dispatch(cmd *Command, out chan<- string, mu *sync.Mutex, subs 
 	case CmdPub:
 		id := strconv.FormatUint(atomic.AddUint64(&s.seq, 1), 10)
 		if s.store != nil {
-			_ = s.store.Append(cmd.Topic, id, cmd.Payload)
+			if err := s.store.Append(cmd.Topic, id, cmd.Payload); err != nil {
+				s.sendMsg(out, fmt.Sprintf("ERR wal_append_failed: %v\n", err))
+				return
+			}
 		}
 		s.r.Route(cmd.Topic, id, cmd.Payload)
 

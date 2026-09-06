@@ -7,34 +7,81 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"PMB/router"
 	"PMB/server"
+	"PMB/storage"
 )
 
 func main() {
 	port := flag.String("port", "4222", "TCP port for broker")
 	retrySec := flag.Int("retry", 2, "ACK retry timeout in seconds")
+	gcInterval := flag.Int("gc-interval", 60, "GC sweep interval in seconds")
+	gcMaxAge := flag.Int("gc-maxage", 300, "GC maximum message age retention in seconds")
 	flag.Parse()
 
 	addr := ":" + *port
-	r := router.New(nil)
+
+	// 1. Initialize Member 3's WAL storage engine
+	store := storage.New()
+
+	// 2. Recover unacknowledged messages from disk logs (Crash Recovery)
+	pending, err := store.RecoverAll()
+	if err != nil {
+		log.Printf("wal recovery warning: %v", err)
+	}
+
+	var maxSeq uint64
+	var recoveredCount int
+	for _, msgs := range pending {
+		for _, m := range msgs {
+			recoveredCount++
+			if idNum, err := strconv.ParseUint(m.ID, 10, 64); err == nil {
+				if idNum > maxSeq {
+					maxSeq = idNum
+				}
+			}
+		}
+	}
+
+	// 3. Start Member 3's GC Retention Daemon
+	gc := storage.NewGCDaemon(store, time.Duration(*gcInterval)*time.Second, time.Duration(*gcMaxAge)*time.Second)
+	gc.Start()
+	defer gc.Stop()
+
+	// 4. Initialize Member 2's Router with WAL store wired in
+	r := router.New(store)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go r.StartRetryMonitor(ctx, time.Duration(*retrySec)*time.Second)
 
-	srv := server.New(addr, r, nil)
+	// 5. Initialize Member 1's TCP Server
+	srv := server.New(addr, r, store)
+	if maxSeq > 0 {
+		srv.SetSeq(maxSeq)
+	}
+
 	if err := srv.Start(); err != nil {
 		log.Fatalf("failed to start server on %s: %v", addr, err)
 	}
 
+	// 6. Re-queue recovered messages into the router
+	for _, msgs := range pending {
+		for _, m := range msgs {
+			r.Route(m.Topic, m.ID, m.Payload)
+		}
+	}
+
 	fmt.Println("=====================================================")
 	fmt.Printf(" Persistent Message Broker (PMB) running on port %s\n", *port)
-	fmt.Printf(" ACK Retry Interval: %ds | Ready for connections\n", *retrySec)
+	fmt.Printf(" Storage Engine    : Write-Ahead Log (WAL) with fsync\n")
+	fmt.Printf(" Crash Recovery    : %d unacked messages recovered\n", recoveredCount)
+	fmt.Printf(" ACK Retry Monitor : %ds | GC Daemon: every %ds\n", *retrySec, *gcInterval)
 	fmt.Println("=====================================================")
 
 	sigCh := make(chan os.Signal, 1)
