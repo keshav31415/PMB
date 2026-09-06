@@ -2,18 +2,32 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"strings"
+	"time"
 )
+
+func formatPayload(text string, lat bool) string {
+	if !lat {
+		return text
+	}
+	b, _ := json.Marshal(map[string]any{
+		"ts":  time.Now().UnixNano(),
+		"msg": text,
+	})
+	return string(b)
+}
 
 func main() {
 	addr := flag.String("addr", "localhost:4222", "Broker TCP address")
 	topic := flag.String("topic", "demo.topic", "Topic to publish to")
 	msg := flag.String("msg", "", "Message payload (if omitted, interactive mode is used)")
+	lat := flag.Bool("lat", false, "Attach nanosecond timestamp for latency tracking")
 	flag.Parse()
 
 	conn, err := net.Dial("tcp", *addr)
@@ -31,11 +45,12 @@ func main() {
 	}
 
 	if payload != "" {
-		line := fmt.Sprintf("PUB %s %s\n", *topic, payload)
+		finalPayload := formatPayload(payload, *lat)
+		line := fmt.Sprintf("PUB %s %s\n", *topic, finalPayload)
 		if _, err := conn.Write([]byte(line)); err != nil {
 			log.Fatalf("failed to send: %v", err)
 		}
-		fmt.Printf("Published to [%s]: %s\n", *topic, payload)
+		fmt.Printf("Published to [%s]: %s\n", *topic, finalPayload)
 		return
 	}
 
@@ -51,7 +66,8 @@ func main() {
 		if text == "" {
 			continue
 		}
-		line := fmt.Sprintf("PUB %s %s\n", *topic, text)
+		finalPayload := formatPayload(text, *lat)
+		line := fmt.Sprintf("PUB %s %s\n", *topic, finalPayload)
 		if _, err := conn.Write([]byte(line)); err != nil {
 			log.Fatalf("connection lost: %v", err)
 		}

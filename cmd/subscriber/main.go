@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -71,7 +73,20 @@ func main() {
 				msgID := parts[2]
 				payload := parts[3]
 
-				fmt.Printf("\n[MSG #%s] on [%s]: %s\n", msgID, top, payload)
+				var meta struct {
+					TS int64 `json:"ts"`
+				}
+				latencyStr := ""
+				if strings.Contains(payload, "\"ts\":") {
+					if err := json.Unmarshal([]byte(payload), &meta); err == nil && meta.TS > 0 {
+						diff := time.Since(time.Unix(0, meta.TS))
+						if diff >= 0 {
+							latencyStr = fmt.Sprintf(" [Latency: %d µs / %.2f ms]", diff.Microseconds(), float64(diff.Microseconds())/1000.0)
+						}
+					}
+				}
+
+				fmt.Printf("\n[MSG #%s] on [%s]%s: %s\n", msgID, top, latencyStr, payload)
 
 				if m == "AT_LEAST_ONCE" && *autoAck {
 					ackCmd := fmt.Sprintf("ACK %s %s %s\n", top, *id, msgID)
