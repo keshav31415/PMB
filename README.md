@@ -37,9 +37,9 @@ Every message in `AT_LEAST_ONCE` mode is guaranteed against power loss before ne
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/architecture-light.svg">
-    <img alt="PMB Architecture & Message Lifecycle" src="docs/architecture-dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-flow-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/architecture-flow-light.svg">
+    <img alt="PMB Architecture & Message Lifecycle" src="docs/architecture-flow-dark.svg" width="100%">
   </picture>
 </p>
 
