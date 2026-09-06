@@ -21,60 +21,19 @@ In hyperconverged infrastructure and edge appliances, developers are forced to m
 
 ---
 
-## 🏛️ System Architecture
+## 🏛️ Architecture & End-to-End Lifecycle
 
-PMB is strictly decoupled into three modular, lock-isolated layers:
+PMB is engineered with a strictly decoupled 3-tier architecture where network I/O, routing state, and physical storage execute in lock-isolated concurrency domains:
 
-```mermaid
-graph TD
-    subgraph Clients ["Clients (Zero-SDK / Any Language)"]
-        Pub["Publisher Client<br/>(CLI / Microservice / Script)"]
-        Sub["Subscriber Client<br/>(Worker Node / Consumer)"]
-    end
+| Layer | Component | Core Responsibility |
+| :--- | :--- | :--- |
+| **Layer 1** | **The Doorman** (`server/`) | Non-blocking TCP event loop (`:4222`), sticky packet framer, 1 MB OOM line guard. |
+| **Layer 2** | **The Traffic Cop** (`router/`) | Topic dispatch table, `AT_LEAST_ONCE` tracker (`pendingAcks`), 2-second retry sweeper. |
+| **Layer 3** | **The Archivist** (`storage/`) | Lock-free atomic Treiber stack, leader/follower group commit (`fsync`), dual-dial GC & delta deduplication. |
 
-    subgraph PMB ["PMB Broker Engine (Single Static Binary < 4MB)"]
-        subgraph Layer1 ["Layer 1: Network & Protocol (The Doorman)"]
-            TCP["TCP Server (:4222)<br/>Event-Driven Non-Blocking"]
-            Parser["ASCII Wire Parser<br/>(Sticky Packet Buffer)"]
-            OOM["OOM Guard<br/>(1MB Line Bounded)"]
-        end
+### Message Lifecycle & Durability Flow
 
-        subgraph Layer3 ["Layer 3: Storage & Retention (The Archivist)"]
-            LockFree["Lock-Free Treiber Queue<br/>(Atomic CAS Ingress)"]
-            GroupCommit["Leader/Follower<br/>Group Commit (fsync)"]
-            WAL["Append-Only WAL<br/>(logs/<topic>.log)"]
-            GCDaemon["Dual-Strategy GC<br/>(ACK Truncation + Delta Deduplication)"]
-        end
-
-        subgraph Layer2 ["Layer 2: Routing & Guarantees (The Traffic Cop)"]
-            Router["Topic Route Table<br/>(Topic -> Sockets)"]
-            Tracker["At-Least-Once Tracker<br/>(Pending ACKs Map)"]
-            RetryMon["Retry Sweeper<br/>(2s Auto-Retransmit)"]
-        end
-    end
-
-    Pub -->|1. PUB topic payload\\n| TCP
-    TCP --> Parser
-    Parser --> OOM
-    OOM -->|2. Write Ahead| LockFree
-    LockFree --> GroupCommit
-    GroupCommit -->|3. fsync() to Disk| WAL
-    GroupCommit -->|4. Hand off| Router
-    Router --> Tracker
-    Tracker -->|5. Deliver MSG\\n| TCP
-    TCP -->|6. TCP Stream| Sub
-    Sub -->|7. ACK topic id msgID\\n| TCP
-    TCP --> Router
-    Router -->|8. Mark Acked| Tracker
-    Tracker -->|9. Reclaim Space| GCDaemon
-    RetryMon -.->|Sweep Stale ACKs| Router
-```
-
----
-
-## 🔄 End-to-End Message Lifecycle & Durability Guarantee
-
-Every message in `AT_LEAST_ONCE` mode is guaranteed against power loss:
+Every message in `AT_LEAST_ONCE` mode is guaranteed against power loss before network delivery:
 
 ```mermaid
 sequenceDiagram
