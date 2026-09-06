@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -17,7 +18,31 @@ type Subscriber struct {
 	ID    string
 	Topic string
 	Mode  string
-	Out   chan<- string // Non-blocking buffered channel for raw MSG strings
+
+	mu     sync.Mutex
+	out    chan<- string // Non-blocking buffered channel for raw MSG strings
+	closed bool
+}
+
+func (s *Subscriber) send(msg string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	select {
+	case s.out <- msg:
+	default:
+	}
+}
+
+func (s *Subscriber) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.closed {
+		s.closed = true
+		close(s.out)
+	}
 }
 
 // StorageEngine defines the subset of Member 3's WAL needed for ACKs.
@@ -69,7 +94,7 @@ func (r *Router) Subscribe(topic, clientID, mode string, out chan<- string) {
 		ID:    clientID,
 		Topic: topic,
 		Mode:  mode,
-		Out:   out,
+		out:   out,
 	}
 }
 
@@ -77,10 +102,13 @@ func (r *Router) Unsubscribe(topic, clientID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.subs[topic]; ok {
-		delete(r.subs[topic], clientID)
-		if len(r.subs[topic]) == 0 {
-			delete(r.subs, topic)
+	if subs, ok := r.subs[topic]; ok {
+		if sub, exists := subs[clientID]; exists {
+			sub.close()
+			delete(subs, clientID)
+			if len(subs) == 0 {
+				delete(r.subs, topic)
+			}
 		}
 	}
 
@@ -121,15 +149,7 @@ func (r *Router) Route(topic, msgID, payload string) {
 			r.ackMu.Unlock()
 		}
 
-		func() {
-			defer func() { recover() }()
-			select {
-			case sub.Out <- msg:
-			default:
-				// Non-blocking drop.
-				// AtLeastOnce will be retried later by monitor; AtMostOnce is discarded.
-			}
-		}()
+		sub.send(msg)
 	}
 }
 
@@ -174,7 +194,7 @@ func (r *Router) sweep(timeout time.Duration) {
 		if now.Sub(p.sentTime) >= timeout {
 			p.attempts++
 			if p.attempts > MaxRetries {
-				fmt.Printf("WARNING: max retries exceeded for topic=%s client=%s msgID=%s, dropping message\n", k.topic, k.clientID, k.msgID)
+				log.Printf("router: giving up on msg %s for client %s on topic %s after %d attempts\n", p.msgID, p.sub.ID, p.sub.Topic, p.attempts)
 				delete(r.pendingAcks, k)
 				continue
 			}
@@ -187,12 +207,6 @@ func (r *Router) sweep(timeout time.Duration) {
 
 	for _, p := range retries {
 		msg := fmt.Sprintf("MSG %s %s %s\n", p.sub.Topic, p.msgID, p.payload)
-		func() {
-			defer func() { recover() }()
-			select {
-			case p.sub.Out <- msg:
-			default:
-			}
-		}()
+		p.sub.send(msg)
 	}
 }

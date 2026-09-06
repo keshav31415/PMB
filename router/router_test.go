@@ -153,3 +153,50 @@ func TestRouter_RaceClose(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestRouter_RetryGivesUp(t *testing.T) {
+	r := New(&stubStorage{})
+	out := make(chan string, 1)
+
+	r.Subscribe("test", "client1", ModeAtLeastOnce, out)
+	r.Route("test", "msg1", "payload")
+
+	if r.PendingAcksCount() != 1 {
+		t.Fatalf("expected 1 pending ack, got %d", r.PendingAcksCount())
+	}
+
+	timeout := 10 * time.Millisecond
+	key := ackKey{topic: "test", clientID: "client1", msgID: "msg1"}
+
+	// MaxRetries sweeps that should NOT remove the message
+	for i := 1; i <= MaxRetries; i++ {
+		r.ackMu.Lock()
+		p, ok := r.pendingAcks[key]
+		if !ok {
+			r.ackMu.Unlock()
+			t.Fatalf("pending ack missing before max retries reached (run %d)", i)
+		}
+		p.sentTime = time.Now().Add(-timeout * 2)
+		r.pendingAcks[key] = p
+		r.ackMu.Unlock()
+
+		r.sweep(timeout)
+
+		if r.PendingAcksCount() != 1 {
+			t.Fatalf("expected 1 pending ack after %d retries, got %d", i, r.PendingAcksCount())
+		}
+	}
+
+	// One final sweep that SHOULD remove the message
+	r.ackMu.Lock()
+	p := r.pendingAcks[key]
+	p.sentTime = time.Now().Add(-timeout * 2)
+	r.pendingAcks[key] = p
+	r.ackMu.Unlock()
+
+	r.sweep(timeout)
+
+	if r.PendingAcksCount() != 0 {
+		t.Fatalf("expected 0 pending acks after exceeding MaxRetries, got %d", r.PendingAcksCount())
+	}
+}
