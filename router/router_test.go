@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -127,23 +128,28 @@ func TestRouter_RaceClose(t *testing.T) {
 	
 	r.Subscribe("test", "client1", ModeAtLeastOnce, out)
 
-	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(3)
 
 	go func() {
+		defer wg.Done()
 		for i := 0; i < 1000; i++ {
 			r.Route("test", "msg1", "payload")
 		}
-		close(done)
 	}()
 
 	go func() {
+		defer wg.Done()
 		for i := 0; i < 1000; i++ {
 			r.sweep(0)
 		}
 	}()
 
-	time.Sleep(1 * time.Millisecond)
-	close(out)
+	go func() {
+		defer wg.Done()
+		time.Sleep(1 * time.Millisecond)
+		r.Unsubscribe("test", "client1")
+	}()
 
-	<-done
+	wg.Wait()
 }
