@@ -35,7 +35,19 @@ PMB is engineered with a strictly decoupled 3-tier architecture where network I/
 
 Every message in `AT_LEAST_ONCE` mode is guaranteed against power loss before network delivery:
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/architecture-light.svg">
+    <img alt="PMB Architecture & Message Lifecycle" src="docs/architecture-dark.svg" width="100%">
+  </picture>
+</p>
+
+<details>
+<summary><b>View Raw Mermaid Protocol Sequence</b></summary>
+
 ```mermaid
+%%{init: { "sequence": { "mirrorActors": false } } }%%
 sequenceDiagram
     autonumber
     actor P as Publisher
@@ -60,6 +72,8 @@ sequenceDiagram
     Rtr->>WAL: MarkAcked("orders.in", "1")
     Note over WAL: Immediate ACK Compaction eligible
 ```
+
+</details>
 
 ---
 
