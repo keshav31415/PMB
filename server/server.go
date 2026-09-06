@@ -29,12 +29,17 @@ type Server struct {
 	addr   string
 	ln     net.Listener
 	r      *router.Router
-	store  Storage
-	seq    uint64
-	closed int32
-	wg     sync.WaitGroup
-	ctx    context.Context
-	cancel context.CancelFunc
+	store      Storage
+	seq        uint64
+	maxLineLen int
+	closed     int32
+	wg         sync.WaitGroup
+	ctx        context.Context
+	cancel     context.CancelFunc
+}
+
+func (s *Server) SetMaxLineLen(n int) {
+	s.maxLineLen = n
 }
 
 func New(addr string, r *router.Router, store Storage) *Server {
@@ -128,15 +133,36 @@ func (s *Server) handleConn(conn net.Conn) {
 	defer cleanupSubs()
 	defer close(done)
 
+	limit := s.maxLineLen
+	if limit <= 0 {
+		limit = 1024 * 1024 // 1MB maximum command line limit to prevent OOM
+	}
 	r := bufio.NewReader(conn)
 
 	for {
-		line, err := r.ReadString('\n')
-		if err != nil {
-			if err != io.EOF && atomic.LoadInt32(&s.closed) == 0 {
-				// Client disconnected or reset
+		var lineBuf []byte
+		for {
+			chunk, isPrefix, err := r.ReadLine()
+			if err != nil {
+				if err != io.EOF && atomic.LoadInt32(&s.closed) == 0 {
+					// Client disconnected or reset
+				}
+				return
 			}
-			return
+			lineBuf = append(lineBuf, chunk...)
+			if len(lineBuf) > limit {
+				_ = conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
+				_, _ = conn.Write([]byte("ERR payload_too_large\n"))
+				return
+			}
+			if !isPrefix {
+				break
+			}
+		}
+
+		line := string(lineBuf)
+		if len(line) == 0 {
+			continue
 		}
 
 		cmd, err := ParseLine(line)
@@ -208,8 +234,8 @@ func (s *Server) dispatch(cmd *Command, out chan<- string, mu *sync.Mutex, subs 
 func (s *Server) sendMsg(out chan<- string, msg string) {
 	select {
 	case out <- msg:
-	default:
-		// Queue full, drop or wait to prevent blocking
+	case <-time.After(50 * time.Millisecond):
+		// Slow consumer backpressure: give subscriber 50ms to drain before dropping
 	}
 }
 

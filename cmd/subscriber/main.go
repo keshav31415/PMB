@@ -53,6 +53,7 @@ func main() {
 	fmt.Printf(" Mode: %s | Auto-ACK: %v | Waiting for messages...\n", m, *autoAck)
 	fmt.Println("=====================================================")
 
+	processedMsgs := make(map[string]bool)
 	r := bufio.NewReader(conn)
 	for {
 		line, err := r.ReadString('\n')
@@ -72,6 +73,18 @@ func main() {
 				top := parts[1]
 				msgID := parts[2]
 				payload := parts[3]
+
+				if processedMsgs[msgID] {
+					fmt.Printf("\n[MSG #%s (DUPLICATE DETECTED)] on [%s]: %s (Idempotently skipped)\n", msgID, top, payload)
+					if m == "AT_LEAST_ONCE" && *autoAck {
+						ackCmd := fmt.Sprintf("ACK %s %s %s\n", top, *id, msgID)
+						if _, err := conn.Write([]byte(ackCmd)); err == nil {
+							fmt.Printf("  -> [Re-sent ACK for duplicate msg #%s]\n", msgID)
+						}
+					}
+					continue
+				}
+				processedMsgs[msgID] = true
 
 				var meta struct {
 					TS int64 `json:"ts"`

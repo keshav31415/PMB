@@ -313,16 +313,27 @@ func (w *WAL) GC(topic string) (int, error) {
 	rawLines := map[string]string{}
 	acked := map[string]bool{}
 
+	fullPayloads := map[string]string{}
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		raw := sc.Text()
-		parts := strings.SplitN(raw, "|", 3)
+		parts := strings.SplitN(raw, "|", 5)
 		if len(parts) < 2 {
 			continue
 		}
 		switch parts[0] {
 		case "W":
-			rawLines[parts[1]] = raw + "\n"
+			if len(parts) >= 5 {
+				p := parts[4]
+				if strings.HasPrefix(p, "@ref:") {
+					refID := strings.TrimPrefix(p, "@ref:")
+					if full, ok := fullPayloads[refID]; ok {
+						p = full
+					}
+				}
+				fullPayloads[parts[1]] = p
+				rawLines[parts[1]] = fmt.Sprintf("W|%s|%s|%s|%s\n", parts[1], parts[2], parts[3], p)
+			}
 		case "A":
 			acked[parts[1]] = true
 		}
@@ -379,6 +390,7 @@ func (w *WAL) GCByAge(topic string, maxAge time.Duration) (int, error) {
 	wRecords := map[string]wRec{}
 	aRecords := map[string]string{} // msgID -> raw line
 
+	fullPayloads := map[string]string{}
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		raw := sc.Text()
@@ -392,7 +404,16 @@ func (w *WAL) GCByAge(topic string, maxAge time.Duration) (int, error) {
 				continue
 			}
 			ts, _ := strconv.ParseFloat(parts[2], 64)
-			wRecords[parts[1]] = wRec{raw: raw + "\n", ts: ts}
+			p := parts[4]
+			if strings.HasPrefix(p, "@ref:") {
+				refID := strings.TrimPrefix(p, "@ref:")
+				if full, ok := fullPayloads[refID]; ok {
+					p = full
+				}
+			}
+			fullPayloads[parts[1]] = p
+			expandedRaw := fmt.Sprintf("W|%s|%s|%s|%s\n", parts[1], parts[2], parts[3], p)
+			wRecords[parts[1]] = wRec{raw: expandedRaw, ts: ts}
 		case "A":
 			aRecords[parts[1]] = raw + "\n"
 		}
@@ -501,11 +522,15 @@ func (w *WAL) doReplaceLog(topic, path string, lines []string) error {
 	out.Sync()
 	out.Close()
 
-	if err = os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return fmt.Errorf("gc rename: %w", err)
+	for attempt := 0; attempt < 5; attempt++ {
+		if err = os.Rename(tmp, path); err == nil {
+			return nil
+		}
+		time.Sleep(10 * time.Millisecond) // Backoff to allow transient file locks (Windows Defender/Explorer) to clear
 	}
-	return nil
+
+	os.Remove(tmp)
+	return fmt.Errorf("gc rename: %w", err)
 }
 
 // GCDaemon runs both GC (ACK-based) and GCByAge (time-based) in the background.

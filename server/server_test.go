@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"io"
 	"net"
 	"strings"
 	"testing"
@@ -199,5 +200,37 @@ func TestServer_ClientDisconnectCleanup(t *testing.T) {
 
 	if _, err := pubConn.Write([]byte("PUB chat hello\n")); err != nil {
 		t.Fatalf("failed to write PUB: %v", err)
+	}
+}
+
+func TestServer_OOMProtection_LargePayload(t *testing.T) {
+	r := router.New(nil)
+	srv := New("127.0.0.1:0", r, nil)
+	srv.SetMaxLineLen(256)
+	if err := srv.Start(); err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", srv.Addr())
+	if err != nil {
+		t.Fatalf("dial failed: %v", err)
+	}
+	defer conn.Close()
+
+	// Stream 5000 bytes without any \n to fill bufio buffer and exceed line limit
+	hugeChunk := make([]byte, 5000)
+	for i := range hugeChunk {
+		hugeChunk[i] = 'A'
+	}
+	_, _ = conn.Write(hugeChunk)
+
+	reader := bufio.NewReader(conn)
+	resp, err := reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		t.Fatalf("unexpected read error: %v", err)
+	}
+	if !strings.Contains(resp, "ERR payload_too_large") {
+		t.Fatalf("expected ERR payload_too_large, got %q (err=%v)", resp, err)
 	}
 }
