@@ -27,9 +27,9 @@ PMB is engineered with a strictly decoupled 3-tier architecture where network I/
 
 | Layer | Component | Core Responsibility |
 | :--- | :--- | :--- |
-| **Layer 1** | **The Doorman** (`server/`) | Non-blocking TCP event loop (`:4222`), sticky packet framer, 1 MB OOM line guard. |
-| **Layer 2** | **The Traffic Cop** (`router/`) | Topic dispatch table, `AT_LEAST_ONCE` tracker (`pendingAcks`), 2-second retry sweeper. |
-| **Layer 3** | **The Archivist** (`storage/`) | Lock-free atomic Treiber stack, leader/follower group commit (`fsync`), dual-dial GC & delta deduplication. |
+| **Layer 1** | **Network & Protocol** (`server/`) | Non-blocking TCP event loop (`:4222`), sticky packet framer, 1 MB bounded line guard. |
+| **Layer 2** | **Routing & Guarantees** (`router/`) | Topic dispatch table, `AT_LEAST_ONCE` tracker (`pendingAcks`), 2-second auto-retry sweeper. |
+| **Layer 3** | **Storage & Durability** (`storage/`) | Lock-free atomic Treiber stack, leader/follower group commit (`fsync`), dual-dial GC & delta deduplication. |
 
 ### Message Lifecycle & Durability Flow
 
@@ -51,9 +51,9 @@ Every message in `AT_LEAST_ONCE` mode is guaranteed against power loss before ne
 sequenceDiagram
     autonumber
     actor P as Publisher
-    participant Srv as Member 1: Server (Doorman)
-    participant WAL as Member 3: Storage (Archivist)
-    participant Rtr as Member 2: Router (Traffic Cop)
+    participant Srv as TCP Server (Ingress)
+    participant WAL as Storage Engine (WAL)
+    participant Rtr as Message Router
     actor S as Subscriber
 
     P->>Srv: PUB orders.in {"id":101}\n
@@ -221,7 +221,7 @@ Run the full automated test suite (all unit tests, race detector, concurrency st
 go test -v ./...
 ```
 ```text
-=== Router Tests (Member 2) ===
+=== Router Package Tests (router) ===
 PASS: TestRouter_Route_FanOut
 PASS: TestRouter_AtMostOnce
 PASS: TestRouter_AtLeastOnce
@@ -230,7 +230,7 @@ PASS: TestRouter_Unsubscribe
 PASS: TestRouter_RaceClose
 PASS: TestRouter_RetryGivesUp
 
-=== Server & Network Tests (Member 1) ===
+=== Server & Network Tests (server) ===
 PASS: TestParseLine
 PASS: TestServer_PingPong
 PASS: TestServer_StickyPackets
@@ -238,7 +238,7 @@ PASS: TestServer_PubSubAck
 PASS: TestServer_ClientDisconnectCleanup
 PASS: TestServer_OOMProtection_LargePayload
 
-=== Storage & WAL Tests (Member 3) ===
+=== Storage & WAL Tests (storage) ===
 PASS: TestBug1_BrokenHandleNotCleared
 PASS: TestBug2_GCClosesHandleEvenWhenNothingPruned
 PASS: TestAppendAndRecover
@@ -261,15 +261,5 @@ ok  	PMB/storage	(clean, 0 race conditions)
 
 ---
 
-## 👥 Division of Labor & Team Contributions
-
-| Team Member | Role | Core Deliverables |
-| :--- | :--- | :--- |
-| **Member 1 (The Doorman)** | Network Transport & CLI | TCP Event Server, ASCII Stream Framing, Bounded OOM Protection, CLI Publisher/Subscriber Tools, Latency Profiler & Benchmark Suite |
-| **Member 2 (The Traffic Cop)** | Routing & Guarantees | Subscription State Map, `AT_MOST_ONCE` / `AT_LEAST_ONCE` Logic, In-Memory `pendingAcks` Tracker, 2s Auto-Retry Background Sweeper |
-| **Member 3 (The Archivist)** | Persistence & Retention | Append-Only WAL (`O_APPEND`), Hard `f.Sync()`, Startup Crash Recovery, Leader/Follower Group Commit, Lock-Free Treiber Stack, Dual-Dial GC Compaction & Delta Deduplication |
-
----
-
 ## 📜 License
-MIT License. Built for the Persistent Message Broker Hackathon.
+MIT License. Open-source under permissive distribution.
