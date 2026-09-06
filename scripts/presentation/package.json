@@ -1,0 +1,16 @@
+{
+  "name": "pmb-presentation-tools",
+  "version": "1.0.0",
+  "description": "Programmatic slide deck generator & visual exporter for PMB architecture pitch",
+  "main": "generate_first3_slides.js",
+  "scripts": {
+    "build:svg": "node generate_custom_svgs.js",
+    "build:deck": "node generate_first3_slides.js",
+    "export:png": "powershell -ExecutionPolicy Bypass -File export_slides.ps1",
+    "build": "node generate_custom_svgs.js && node generate_first3_slides.js && powershell -ExecutionPolicy Bypass -File export_slides.ps1"
+  },
+  "dependencies": {
+    "image-size": "^1.1.1",
+    "pptxgenjs": "^3.12.0"
+  }
+}

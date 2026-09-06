@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 380" width="100%" height="100%">
+  <defs>
+    <marker id="arrow-pipe" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38BDF8"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#34D399"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#818CF8"/>
+    </marker>
+    <linearGradient id="pipeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#142236"/>
+      <stop offset="100%" stop-color="#0B131F"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="380" fill="#131B2B"/>
+
+  <!-- Outer Boundary Container -->
+  <rect x="20" y="15" width="1060" height="350" rx="10" fill="url(#pipeGrad)" stroke="#233A5E" stroke-width="1.5"/>
+  <rect x="35" y="8" width="560" height="24" rx="4" fill="#1A2D4A" stroke="#38BDF8" stroke-width="1"/>
+  <text x="45" y="24" fill="#38BDF8" font-family="Arial" font-size="11.5" font-weight="bold" letter-spacing="0.5">PMB CORE DATA PATHWAY: FROM RAW BYTES TO HARDWARE FSYNC &amp; COMPACTION</text>
+
+  <!-- Stage 1: Network Ingress & Framed Parser -->
+  <g transform="translate(35, 45)">
+    <rect width="180" height="220" rx="8" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="160" height="24" rx="4" fill="#0C344E"/>
+    <text x="18" y="26" fill="#38BDF8" font-family="Arial" font-size="11" font-weight="bold">STAGE 1: INGRESS</text>
+
+    <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">Zero-Copy Parser</text>
+    <text x="15" y="76" fill="#38BDF8" font-family="Arial" font-size="10.5" font-weight="bold">Framed ASCII Engine</text>
+
+    <rect x="10" y="95" width="160" height="110" rx="4" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+    <text x="18" y="115" fill="#FFFFFF" font-family="Arial" font-size="10.5">• 1MB Bounded Buffer</text>
+    <text x="18" y="135" fill="#FFFFFF" font-family="Arial" font-size="10.5">• Streaming tokenizer</text>
+    <text x="18" y="155" fill="#94A3B8" font-family="monospace" font-size="10">PUB topic bytes
+</text>
+    <text x="18" y="175" fill="#94A3B8" font-family="monospace" font-size="10">&lt;raw payload&gt;
+</text>
+    <text x="18" y="195" fill="#34D399" font-family="Arial" font-size="10">O(1) memory alloc</text>
+  </g>
+
+  <!-- Flow Arrow 1 -> 2 -->
+  <path d="M 220 155 L 245 155" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-pipe)"/>
+
+  <!-- Stage 2: Lock-Free Atomic Queue -->
+  <g transform="translate(250, 45)">
+    <rect width="180" height="220" rx="8" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="160" height="24" rx="4" fill="#0C344E"/>
+    <text x="18" y="26" fill="#38BDF8" font-family="Arial" font-size="11" font-weight="bold">STAGE 2: ATOMIC</text>
+
+    <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">Treiber CAS Stack</text>
+    <text x="15" y="76" fill="#34D399" font-family="Arial" font-size="10.5" font-weight="bold">sync/atomic Pointer</text>
+
+    <rect x="10" y="95" width="160" height="110" rx="4" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+    <text x="18" y="115" fill="#FFFFFF" font-family="Arial" font-size="10.5">• CompareAndSwap()</text>
+    <text x="18" y="135" fill="#FFFFFF" font-family="Arial" font-size="10.5">• Zero lock contention</text>
+    <text x="18" y="155" fill="#38BDF8" font-family="Arial" font-size="10.5">• Multi-producer safe</text>
+    <text x="18" y="175" fill="#94A3B8" font-family="Arial" font-size="10">Immune to thread</text>
+    <text x="18" y="193" fill="#94A3B8" font-family="Arial" font-size="10">starvation spikes</text>
+  </g>
+
+  <!-- Flow Arrow 2 -> 3 -->
+  <path d="M 435 155 L 460 155" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-pipe)"/>
+
+  <!-- Stage 3: Dynamic Group Commit -->
+  <g transform="translate(465, 45)">
+    <rect width="185" height="220" rx="8" fill="#1E293B" stroke="#34D399" stroke-width="1.5"/>
+    <rect x="10" y="10" width="165" height="24" rx="4" fill="#0E3D2D"/>
+    <text x="18" y="26" fill="#34D399" font-family="Arial" font-size="11" font-weight="bold">STAGE 3: DURABILITY</text>
+
+    <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">Group Commit WAL</text>
+    <text x="15" y="76" fill="#34D399" font-family="Arial" font-size="10.5" font-weight="bold">Hardware fsync Barrier</text>
+
+    <rect x="10" y="95" width="165" height="110" rx="4" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+    <text x="18" y="115" fill="#FFFFFF" font-family="Arial" font-size="10.5">• Leader drains batch</text>
+    <text x="18" y="135" fill="#34D399" font-family="Arial" font-size="10.5">• 1 physical NVMe write</text>
+    <text x="18" y="155" fill="#FBBF24" font-family="Arial" font-size="10.5">• os.File.Sync() barrier</text>
+    <text x="18" y="175" fill="#FFFFFF" font-family="Arial" font-size="10.5">• 30,000+ writes/sec</text>
+    <text x="18" y="195" fill="#94A3B8" font-family="Arial" font-size="10">Zero-loss power drops</text>
+  </g>
+
+  <!-- Flow Arrow 3 -> 4 -->
+  <path d="M 655 155 L 680 155" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-pipe)"/>
+
+  <!-- Stage 4: Routing & pendingAcks -->
+  <g transform="translate(685, 45)">
+    <rect width="180" height="220" rx="8" fill="#1E293B" stroke="#818CF8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="160" height="24" rx="4" fill="#291F47"/>
+    <text x="18" y="26" fill="#C4B5FD" font-family="Arial" font-size="11" font-weight="bold">STAGE 4: DISPATCH</text>
+
+    <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">Route &amp; Tracking</text>
+    <text x="15" y="76" fill="#818CF8" font-family="Arial" font-size="10.5" font-weight="bold">sync.RWMutex Fan-Out</text>
+
+    <rect x="10" y="95" width="160" height="110" rx="4" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+    <text x="18" y="115" fill="#FFFFFF" font-family="Arial" font-size="10.5">• In-memory fan-out</text>
+    <text x="18" y="135" fill="#FFFFFF" font-family="Arial" font-size="10.5">• Assign unique MsgID</text>
+    <text x="18" y="155" fill="#818CF8" font-family="Arial" font-size="10.5">• pendingAcks map</text>
+    <text x="18" y="175" fill="#FBBF24" font-family="Arial" font-size="10.5">• 2-sec auto-retry timer</text>
+    <text x="18" y="195" fill="#94A3B8" font-family="Arial" font-size="10">At-least-once guarantee</text>
+  </g>
+
+  <!-- Flow Arrow 4 -> 5 -->
+  <path d="M 870 155 L 895 155" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-pipe)"/>
+
+  <!-- Stage 5: ACK Compaction & Truncation -->
+  <g transform="translate(900, 45)">
+    <rect width="165" height="220" rx="8" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="145" height="24" rx="4" fill="#0C344E"/>
+    <text x="18" y="26" fill="#38BDF8" font-family="Arial" font-size="11" font-weight="bold">STAGE 5: RECLAIM</text>
+
+    <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">ACK Compaction</text>
+    <text x="15" y="76" fill="#38BDF8" font-family="Arial" font-size="10.5" font-weight="bold">Instant Log Truncation</text>
+
+    <rect x="10" y="95" width="145" height="110" rx="4" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+    <text x="18" y="115" fill="#FFFFFF" font-family="Arial" font-size="10.5">• Client sends ACK</text>
+    <text x="18" y="135" fill="#FFFFFF" font-family="Arial" font-size="10.5">• Timer canceled</text>
+    <text x="18" y="155" fill="#34D399" font-family="Arial" font-size="10.5">• Offset reclaimed</text>
+    <text x="18" y="175" fill="#FBBF24" font-family="Arial" font-size="10.5">• Truncate to 0 bytes</text>
+    <text x="18" y="195" fill="#94A3B8" font-family="Arial" font-size="10">Zero disk leaks</text>
+  </g>
+
+  <!-- Bottom Annotation Bar -->
+  <rect x="35" y="285" width="1030" height="70" rx="6" fill="#0F1B2D" stroke="#253D63" stroke-width="1"/>
+  <text x="50" y="308" fill="#38BDF8" font-family="Arial" font-size="11.5" font-weight="bold">ARCHITECTURAL HIGHLIGHT: ZERO RUNTIME STORAGE LEAKS</text>
+  <text x="50" y="328" fill="#94A3B8" font-family="Arial" font-size="10.5">Unlike Kafka/RabbitMQ which accumulate static 7-day logs until hypervisor root partitions exhaust,</text>
+  <text x="50" y="344" fill="#94A3B8" font-family="Arial" font-size="10.5">PMB reclaims physical NVMe log blocks the exact microsecond all subscribers ACK, keeping disk footprint bounded.</text>
+</svg>
