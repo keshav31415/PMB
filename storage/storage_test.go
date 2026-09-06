@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -253,4 +254,47 @@ func fileSize(t *testing.T, topic string) int64 {
 		t.Fatal(err)
 	}
 	return info.Size()
+}
+
+func TestGroupCommit_ConcurrentScale(t *testing.T) {
+	defer setup(t)()
+	w := New()
+
+	const workers = 50
+	const msgsPerWorker = 20
+	const totalMsgs = workers * msgsPerWorker
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, totalMsgs)
+
+	start := time.Now()
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(wID int) {
+			defer wg.Done()
+			for j := 0; j < msgsPerWorker; j++ {
+				id := fmt.Sprintf("w%d_m%d", wID, j)
+				if err := w.Append("scale_topic", id, "payload"); err != nil {
+					errCh <- err
+					return
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Fatalf("concurrent append error: %v", err)
+	}
+
+	t.Logf("Group Commit wrote %d durable msgs in %v", totalMsgs, time.Since(start))
+
+	recovered, err := w.Recover("scale_topic")
+	if err != nil {
+		t.Fatalf("recover error: %v", err)
+	}
+	if len(recovered) != totalMsgs {
+		t.Fatalf("expected %d recovered messages, got %d", totalMsgs, len(recovered))
+	}
 }

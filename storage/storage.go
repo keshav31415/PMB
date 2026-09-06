@@ -21,17 +21,26 @@ type Msg struct {
 	Ts      float64
 }
 
+type commitGroup struct {
+	mu       sync.Mutex
+	lines    []string
+	pending  []chan error
+	flushing bool
+}
+
 type WAL struct {
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
-	files map[string]*os.File
+	mu     sync.Mutex
+	locks  map[string]*sync.Mutex
+	groups map[string]*commitGroup
+	files  map[string]*os.File
 }
 
 func New() *WAL {
 	os.MkdirAll(logDir, 0755)
 	return &WAL{
-		locks: make(map[string]*sync.Mutex),
-		files: make(map[string]*os.File),
+		locks:  make(map[string]*sync.Mutex),
+		groups: make(map[string]*commitGroup),
+		files:  make(map[string]*os.File),
 	}
 }
 
@@ -42,6 +51,15 @@ func (w *WAL) getLock(topic string) *sync.Mutex {
 		w.locks[topic] = &sync.Mutex{}
 	}
 	return w.locks[topic]
+}
+
+func (w *WAL) getGroup(topic string) *commitGroup {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.groups[topic] == nil {
+		w.groups[topic] = &commitGroup{}
+	}
+	return w.groups[topic]
 }
 
 func logPath(topic string) string {
@@ -69,6 +87,43 @@ func (w *WAL) MarkAcked(topic, msgID string) error {
 }
 
 func (w *WAL) writeLine(topic, line string) error {
+	grp := w.getGroup(topic)
+	errCh := make(chan error, 1)
+
+	grp.mu.Lock()
+	grp.lines = append(grp.lines, line)
+	grp.pending = append(grp.pending, errCh)
+	if grp.flushing {
+		grp.mu.Unlock()
+		return <-errCh
+	}
+	grp.flushing = true
+	grp.mu.Unlock()
+
+	// Leader flusher loop: flushes current batch and any subsequent lines queued during fsync
+	for {
+		grp.mu.Lock()
+		if len(grp.lines) == 0 {
+			grp.flushing = false
+			grp.mu.Unlock()
+			break
+		}
+		batchLines := grp.lines
+		batchChans := grp.pending
+		grp.lines = nil
+		grp.pending = nil
+		grp.mu.Unlock()
+
+		err := w.flushBatch(topic, batchLines)
+		for _, ch := range batchChans {
+			ch <- err
+		}
+	}
+
+	return <-errCh
+}
+
+func (w *WAL) flushBatch(topic string, lines []string) error {
 	lk := w.getLock(topic)
 	lk.Lock()
 	defer lk.Unlock()
@@ -86,16 +141,25 @@ func (w *WAL) writeLine(topic, line string) error {
 	}
 	w.mu.Unlock()
 
-	if _, err := f.WriteString(line); err != nil {
-		// Evict the broken handle so the next call reopens a fresh fd.
-		w.mu.Lock()
-		delete(w.files, topic)
-		w.mu.Unlock()
-		return fmt.Errorf("wal write %s: %w", topic, err)
+	for _, l := range lines {
+		if _, err := f.WriteString(l); err != nil {
+			// Evict the broken handle so the next call reopens a fresh fd.
+			w.mu.Lock()
+			delete(w.files, topic)
+			w.mu.Unlock()
+			return fmt.Errorf("wal write %s: %w", topic, err)
+		}
 	}
 
 	// Forces the OS to physically flush data to disk before returning.
-	return f.Sync()
+	if err := f.Sync(); err != nil {
+		w.mu.Lock()
+		delete(w.files, topic)
+		w.mu.Unlock()
+		return fmt.Errorf("wal sync %s: %w", topic, err)
+	}
+
+	return nil
 }
 
 func (w *WAL) Recover(topic string) ([]Msg, error) {
