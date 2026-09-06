@@ -45,7 +45,7 @@ func (s *Subscriber) close() {
 	}
 }
 
-// StorageEngine defines the subset of Member 3's WAL needed for ACKs.
+// StorageEngine defines the storage interface needed for ACK persistence.
 type StorageEngine interface {
 	MarkAcked(topic, msgID string) error
 }
@@ -166,7 +166,7 @@ func (r *Router) ProcessAck(topic, clientID, msgID string) {
 	r.ackMu.Unlock()
 
 	if r.store != nil {
-		_ = r.store.MarkAcked(topic, msgID) // Best-effort write to Member 3's WAL
+		_ = r.store.MarkAcked(topic, msgID) // Best-effort write to WAL persistence
 	}
 }
 

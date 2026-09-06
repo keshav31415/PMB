@@ -25,7 +25,7 @@ func main() {
 
 	addr := ":" + *port
 
-	// 1. Initialize Member 3's WAL storage engine
+	// 1. Initialize WAL storage engine
 	store := storage.New()
 
 	// 2. Recover unacknowledged messages from disk logs (Crash Recovery)
@@ -47,12 +47,12 @@ func main() {
 		}
 	}
 
-	// 3. Start Member 3's GC Retention Daemon
+	// 3. Start GC Retention Daemon
 	gc := storage.NewGCDaemon(store, time.Duration(*gcInterval)*time.Second, time.Duration(*gcMaxAge)*time.Second)
 	gc.Start()
 	defer gc.Stop()
 
-	// 4. Initialize Member 2's Router with WAL store wired in
+	// 4. Initialize Router with WAL store wired in
 	r := router.New(store)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -60,7 +60,7 @@ func main() {
 
 	go r.StartRetryMonitor(ctx, time.Duration(*retrySec)*time.Second)
 
-	// 5. Initialize Member 1's TCP Server
+	// 5. Initialize TCP Server
 	srv := server.New(addr, r, store)
 	if maxSeq > 0 {
 		srv.SetSeq(maxSeq)

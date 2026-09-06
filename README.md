@@ -1,39 +1,56 @@
 # PMB: Persistent Message Broker 🚀
-### *Ultra-Lightweight, Crash-Resilient Pub/Sub Broker for Edge & Hypervisor Infrastructure*
+### *Ultra-Lightweight, Crash-Resilient Pub/Sub Engine for Edge & MicroVM Infrastructure*
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat)](https://github.com/keshav31415/PMB)
 [![Architecture](https://img.shields.io/badge/architecture-Micro--Broker-blueviolet?style=flat)](https://github.com/keshav31415/PMB)
-[![Dependencies](https://img.shields.io/badge/dependencies-0%20(stdlib%20only)-orange?style=flat)](file:///d:/persistant_message_broker/go.mod)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](https://github.com/keshav31415/PMB)
+[![Dependencies](https://img.shields.io/badge/dependencies-0%20(stdlib%20only)-orange?style=flat)](go.mod)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
 
-Inspired by **NATS JetStream**, **PMB** is an ultra-compact, high-durability message broker built from scratch in standard Go. It is engineered specifically for **resource-constrained edge nodes, microVMs, and hypervisor control-planes** (e.g. Nutanix AHV/AOS/Prism clusters) where heavy enterprise brokers like Apache Kafka or RabbitMQ are too bloated to run.
-
----
-
-## 🌟 Why PMB? (The Problem We Solve)
-
-In hyperconverged infrastructure and edge appliances, developers are forced to make an impossible choice:
-1. **The "Fat Broker" Route (Kafka / RabbitMQ):** Consumes 500+ MB RAM, requires JVM/Erlang runtimes, takes 15 seconds to cold-boot, and risks host out-of-disk crashes from static multi-day retention.
-2. **The "Ephemeral IPC" Route (gRPC / ZeroMQ):** Microsecond speed, but **zero persistence**. If an edge node experiences a sudden power hiccup, all in-flight telemetry and critical state transitions vanish into thin air.
-
-**PMB bridges this chasm:** It combines the **7 MB footprint and sub-10ms startup of ephemeral IPC** with the **bulletproof, power-failure durability of enterprise Write-Ahead Logs**.
+**PMB** is an ultra-compact, high-durability message broker built from scratch in standard Go with **zero external dependencies**. Engineered specifically for **resource-constrained edge nodes, IoT gateways, microVMs, and hypervisor control-planes** (e.g., Nutanix AHV/AOS, AWS Firecracker), PMB delivers the durability of enterprise message queues at a fraction of their resource footprint.
 
 ---
 
-## 🏛️ Architecture & End-to-End Lifecycle
+## 🌟 Why PMB?
 
-PMB is engineered with a strictly decoupled 3-tier architecture where network I/O, routing state, and physical storage execute in lock-isolated concurrency domains:
+In edge infrastructure and microVM appliances, engineers traditionally face an impossible trade-off:
 
-| Layer | Component | Core Responsibility |
+1. **Enterprise Message Brokers (Apache Kafka / RabbitMQ):** Full persistence and delivery guarantees, but require heavy JVM/Erlang runtimes, consume 500+ MB of RAM at idle, take 10+ seconds to boot, and risk host out-of-disk failures with static multi-day retention.
+2. **Ephemeral IPC (gRPC / ZeroMQ):** Sub-millisecond latency and tiny footprints, but **zero persistence**. Sudden power drops or process restarts cause all in-flight messages and critical state transitions to be lost forever.
+
+**PMB bridges this chasm:** It combines the **7 MB RAM footprint and sub-10ms startup of lightweight IPC** with the **hardened disk durability of enterprise Write-Ahead Logs (`fsync`)**.
+
+---
+
+## ✨ Key Features & Guarantees
+
+* **🛡️ Bulletproof Physical Durability:** Every `AT_LEAST_ONCE` message is flushed to disk via an append-only Write-Ahead Log (WAL) with `fsync()` before network handoff.
+* **⚡ Leader/Follower Group Commit:** Automatically amortizes expensive disk flushes across concurrent producers, scaling durable write throughput from ~1,000 to **>30,000 msgs/sec** without artificial sleep windows.
+* **🎯 Flexible Delivery Semantics:**
+  * `AT_MOST_ONCE`: Fire-and-forget delivery for high-frequency telemetry and sensor metrics.
+  * `AT_LEAST_ONCE`: Acknowledged delivery tracked in-memory with automatic 2-second retry sweeper until confirmed.
+* **🧹 Dual-Dial Retention & Delta Deduplication:**
+  * **Dial 1 (Interest-Driven):** Reclaims disk space the instant all active subscribers acknowledge a message.
+  * **Dial 2 (Circuit Breaker):** Protects root disk partitions from dead consumers with configurable age-based garbage collection.
+  * **Delta Deduplication:** Replaces repetitive log payloads with lightweight `@ref:<id>` pointers, reducing disk consumption by up to 85%.
+* **🔌 Zero-SDK Wire Protocol:** Simple newline-delimited ASCII protocol over raw TCP (`:4222`). Any programming language or command-line utility (`nc`, `socat`) can publish and subscribe out-of-the-box.
+* **🔒 Production Edge Hardening:** 1 MB bounded line parsing (OOM defense), 50ms slow-consumer backpressure grace window, subscriber duplicate suppression, and cross-platform file locking resilience.
+
+---
+
+## 🏛️ System Architecture
+
+PMB is organized into three lock-isolated, modular layers:
+
+| Layer | Component | Description |
 | :--- | :--- | :--- |
-| **Layer 1** | **Network & Protocol** (`server/`) | Non-blocking TCP event loop (`:4222`), sticky packet framer, 1 MB bounded line guard. |
-| **Layer 2** | **Routing & Guarantees** (`router/`) | Topic dispatch table, `AT_LEAST_ONCE` tracker (`pendingAcks`), 2-second auto-retry sweeper. |
-| **Layer 3** | **Storage & Durability** (`storage/`) | Lock-free atomic Treiber stack, leader/follower group commit (`fsync`), dual-dial GC & delta deduplication. |
+| **Layer 1: Network & Ingress** | `server/` | Event-driven non-blocking TCP server (`:4222`), sticky packet framer, 1 MB OOM boundary guard. |
+| **Layer 2: Routing & Reliability** | `router/` | Subscription route tables, `AT_LEAST_ONCE` state tracking (`pendingAcks`), 2-second retry monitor. |
+| **Layer 3: Storage & Durability** | `storage/` | Lock-free atomic Treiber stack, leader/follower group commit, dual-dial compaction & delta deduplication. |
 
-### Message Lifecycle & Durability Flow
+### End-to-End Message Lifecycle
 
-Every message in `AT_LEAST_ONCE` mode is guaranteed against power loss before network delivery:
+The sequence diagram below illustrates how an `AT_LEAST_ONCE` message flows through network ingress, disk persistence, subscriber routing, and immediate ACK reclamation:
 
 <p align="center">
   <picture>
@@ -43,223 +60,218 @@ Every message in `AT_LEAST_ONCE` mode is guaranteed against power loss before ne
   </picture>
 </p>
 
-<details>
-<summary><b>View Raw Mermaid Protocol Sequence</b></summary>
-
-```mermaid
-%%{init: { "sequence": { "mirrorActors": false } } }%%
-sequenceDiagram
-    autonumber
-    actor P as Publisher
-    participant Srv as TCP Server (Ingress)
-    participant WAL as Storage Engine (WAL)
-    participant Rtr as Message Router
-    actor S as Subscriber
-
-    P->>Srv: PUB orders.in {"id":101}\n
-    Note over Srv: Parse command, assign atomic MsgID #1
-    Srv->>WAL: Lock-free Push to Atomic Epoch Queue
-    Note over WAL: Leader/Follower Group Commit batches fsync()
-    WAL-->>Srv: fsync() committed to disk
-    Srv->>Rtr: Route("orders.in", "1", payload)
-    Note over Rtr: Record in pendingAcks map + start timer
-    Rtr->>Srv: Push to subscriber channel (50ms backpressure grace)
-    Srv->>S: MSG orders.in 1 {"id":101}\n
-    Note over S: Process order & check idempotency cache
-    S->>Srv: ACK orders.in worker1 1\n
-    Srv->>Rtr: ProcessAck("orders.in", "worker1", "1")
-    Note over Rtr: Stop timer & delete from pendingAcks
-    Rtr->>WAL: MarkAcked("orders.in", "1")
-    Note over WAL: Immediate ACK Compaction eligible
-```
-
-</details>
-
 ---
 
-## ⚡ Core Breakthrough Innovations
+## 📊 Empirical Benchmarks
 
-### 1. Leader/Follower Group Commit (30× Disk Throughput)
-* **The Problem:** Naive disk flushing (`1 write = 1 fsync`) caps throughput on modern SSDs at ~500–1,000 msgs/sec due to disk controller sync latencies.
-* **The PMB Solution:** 
-  * Under low traffic, Message 1 becomes the **Group Leader** and flushes immediately with **0 ms artificial delay**.
-  * Under high traffic, concurrent messages queue into the current epoch. The Leader flushes **all queued messages in a single batch with one `f.Sync()`**.
-  * **Result:** Persistent throughput scales from 1,000 msgs/sec to **>30,000 durable msgs/sec** while preserving 100% power-loss safety.
-
-### 2. Lock-Free Atomic Treiber Stack Ingress
-* Replaced mutex contention on the write path with an **atomic Compare-And-Swap (CAS)** Treiber queue using `sync/atomic`.
-* Producers never block on lock acquisition; the flusher thread atomically steals the entire queue with `atomic.SwapPointer(&head, nil)`.
-
-### 3. Dual-Dial Retention Engine & Delta Deduplication
-* **Dial 1 (Capability / Interest-Driven):** The microsecond all active subscribers ACK a message, the GC engine compacts the log. Backlog scales with unread messages, not arbitrary multi-day timers.
-* **Dial 2 (Dead-Consumer Circuit Breaker):** If a consumer permanently dies, `GCByAge` auto-prunes stale messages past a threshold, preventing root partition exhaustion.
-* **Delta Deduplication:** When compacting repetitive telemetry, duplicate payloads are replaced with `@ref:<id>` references on disk, cutting storage usage by up to 85% while recovering the full original payload on boot.
-
-### 4. Hardened Against Edge Failure Modes
-* **OOM Defense:** Maximum 1 MB boundary check on raw lines prevents unbounded memory allocation attacks.
-* **Slow Consumer Backpressure:** 50ms grace window prevents transient client drops without deadlocking the broker.
-* **Windows File-Lock Defense:** Exponential retry loop around `os.Rename` overcomes antivirus/Windows Defender file locks during compaction.
-* **Client Idempotency Cache:** Subscriber CLI automatically detects and suppresses retransmitted duplicate deliveries.
-
----
-
-## 📊 Empirical Benchmarks (PMB vs. Kafka vs. RabbitMQ)
-
-*Measured on standard workstation hardware running Windows 11 / WSL2 Ubuntu:*
+*Measured on standard workstation hardware (Windows 11 / WSL2 Linux, SSD storage):*
 
 | Metric | Apache Kafka | RabbitMQ | **PMB (Our Broker)** |
 | :--- | :--- | :--- | :--- |
 | **Runtime Requirement** | JVM (Java 17+) | Erlang VM (BEAM) | **Zero (Native Static Binary)** |
 | **Binary Size** | $> 120$ MB (plus JRE) | $> 50$ MB (plus Erlang) | **3.78 MB** *(98% smaller)* |
 | **Idle Memory (RAM)** | $\approx 450 - 800$ MB | $\approx 80 - 150$ MB | **7.18 MB** *(98.5% less RAM)* |
-| **Cold Boot Startup Time**| $8.0 - 15.0$ seconds | $3.0 - 6.0$ seconds | **$< 10$ milliseconds** |
+| **Cold Boot Time** | $8.0 - 15.0$ seconds | $3.0 - 6.0$ seconds | **$< 10$ milliseconds** |
 | **Durable Ingress Speed** | High (partitioned) | Moderate | **30,000+ msgs/sec** (Group Commit) |
-| **Single-Message Latency** | $2.0 - 5.0$ ms (linger window) | $1.0 - 3.0$ ms | **$< 0.5$ ms (519 µs roundtrip)** |
-| **Retention Policy** | Static Time / Size | Queue Drain (No Log) | **Immediate ACK Compaction + Age GC** |
+| **Single-Message Latency** | $2.0 - 5.0$ ms | $1.0 - 3.0$ ms | **$< 0.5$ ms (519 µs roundtrip)** |
+| **Retention Mechanism** | Time / Size limits | Queue Drain (No Log) | **Immediate ACK Compaction + Age GC** |
 
 ---
 
-## 📡 The ASCII Wire Protocol
-
-All network communication over the raw TCP socket uses newline-delimited (`\n`) ASCII strings. No proprietary SDKs, Protobuf compilers, or heavy client libraries required.
-
-| Command | Direction | Format | Description |
-| :--- | :--- | :--- | :--- |
-| **PUB** | Client $\to$ Server | `PUB <topic> <payload>\n` | Publishes payload to topic (spaces in payload preserved) |
-| **SUB** | Client $\to$ Server | `SUB <topic> <id> <mode>\n` | Subscribes in `AT_MOST_ONCE` or `AT_LEAST_ONCE` mode |
-| **ACK** | Client $\to$ Server | `ACK <topic> <id> <msg_id>\n`| Confirms safe delivery of message |
-| **PING** | Client $\to$ Server | `PING\n` | Heartbeat health check |
-| **MSG** | Server $\to$ Client | `MSG <topic> <msg_id> <payload>\n` | Dispatches message to subscriber |
-| **PONG** | Server $\to$ Client | `PONG\n` | Heartbeat response |
-| **ERR** | Server $\to$ Client | `ERR <reason>\n` | Protocol or payload error |
-
----
-
-## 🚀 Quickstart & Demo Guide
+## 🚀 Quickstart
 
 ### 1. Build Binaries
-```powershell
-go build -o bin/server.exe ./cmd/server
-go build -o bin/publisher.exe ./cmd/publisher
-go build -o bin/subscriber.exe ./cmd/subscriber
-go build -o bin/latency.exe ./cmd/latency
-go build -o bin/bench.exe ./cmd/bench
+```bash
+go build -o bin/server ./cmd/server
+go build -o bin/publisher ./cmd/publisher
+go build -o bin/subscriber ./cmd/subscriber
 ```
 
-### 2. Run the Broker (Terminal 1)
-```powershell
-go run ./cmd/server -port 4222
+### 2. Start the Broker
+```bash
+./bin/server -port 4222
 ```
 
-### 3. Connect a Subscriber (Terminal 2)
-```powershell
-go run ./cmd/subscriber -topic orders.in -id worker1 -mode AT_LEAST_ONCE
+### 3. Connect a Subscriber
+```bash
+# In a new terminal:
+./bin/subscriber -topic orders.in -id worker1 -mode AT_LEAST_ONCE
 ```
 
-### 4. Publish Messages (Terminal 3)
-```powershell
-# Interactive mode (type messages and hit Enter):
-go run ./cmd/publisher -topic orders.in
-
-# Or single-shot publish with latency tracking:
-go run ./cmd/publisher -topic orders.in -lat -msg "Order #1042 approved"
+### 4. Publish Messages
+```bash
+# In a third terminal:
+./bin/publisher -topic orders.in -msg '{"order_id": 1042, "status": "pending"}'
 ```
 
 ---
 
-## 🔬 Performance & Diagnostics Tools
+## 🌐 Zero-SDK Client Integration
 
-### A. Microsecond Lifecycle Profiler
-Inspects each stage (Publisher $\to$ Network Ingress $\to$ WAL $\to$ Router $\to$ Subscriber $\to$ ACK $\to$ Purge):
-```powershell
+Because PMB uses a clean newline-delimited ASCII protocol over raw TCP, you can integrate with it from any language or shell environment without downloading any third-party SDK.
+
+### Bash / Netcat
+```bash
+# Publish a message
+echo "PUB sensors.temperature 24.5C" | nc localhost 4222
+
+# Subscribe to a stream
+printf "SUB sensors.temperature worker1 AT_LEAST_ONCE\n" | nc localhost 4222
+```
+
+### Python
+```python
+import socket
+
+# Publish an event
+with socket.create_connection(("localhost", 4222)) as s:
+    s.sendall(b'PUB orders.in {"id": 101, "total": 49.99}\n')
+
+# Subscribe and process events
+with socket.create_connection(("localhost", 4222)) as s:
+    s.sendall(b"SUB orders.in worker1 AT_LEAST_ONCE\n")
+    reader = s.makefile("r")
+    while True:
+        line = reader.readline()
+        if not line:
+            break
+        # Format: MSG <topic> <msg_id> <payload>
+        parts = line.strip().split(" ", 3)
+        if parts[0] == "MSG":
+            msg_id = parts[2]
+            print(f"Received message {msg_id}: {parts[3]}")
+            # Acknowledge message
+            s.sendall(f"ACK orders.in worker1 {msg_id}\n".encode())
+```
+
+### Node.js
+```javascript
+const net = require('net');
+
+// Publish a message
+const pub = net.connect(4222, 'localhost', () => {
+  pub.write('PUB alerts.disk {"mount": "/data", "usage": "91%"}\n');
+  pub.end();
+});
+
+// Subscribe to a topic
+const sub = net.connect(4222, 'localhost', () => {
+  sub.write('SUB alerts.disk monitor1 AT_LEAST_ONCE\n');
+});
+
+sub.on('data', (data) => {
+  const line = data.toString().trim();
+  const parts = line.split(' ');
+  if (parts[0] === 'MSG') {
+    const msgId = parts[2];
+    console.log(`Received: ${parts.slice(3).join(' ')}`);
+    sub.write(`ACK alerts.disk monitor1 ${msgId}\n`);
+  }
+});
+```
+
+### Go
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"net"
+	"strings"
+)
+
+func main() {
+	conn, _ := net.Dial("tcp", "localhost:4222")
+	defer conn.Close()
+
+	// Subscribe
+	fmt.Fprintf(conn, "SUB orders.in worker1 AT_LEAST_ONCE\n")
+
+	scanner := bufio.NewScanner(conn)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.SplitN(line, " ", 4)
+		if parts[0] == "MSG" {
+			msgID := parts[2]
+			fmt.Printf("Processed: %s\n", parts[3])
+			// Send ACK
+			fmt.Fprintf(conn, "ACK orders.in worker1 %s\n", msgID)
+		}
+	}
+}
+```
+
+---
+
+## 📡 Wire Protocol Specification
+
+All communication occurs over standard TCP using `\n`-terminated ASCII strings:
+
+| Command | Direction | Syntax | Description |
+| :--- | :--- | :--- | :--- |
+| **`PUB`** | Client $\to$ Broker | `PUB <topic> <payload>\n` | Publishes payload to topic. Spaces within payload are preserved. |
+| **`SUB`** | Client $\to$ Broker | `SUB <topic> <client_id> <mode>\n` | Subscribes client in `AT_MOST_ONCE` or `AT_LEAST_ONCE` mode. |
+| **`ACK`** | Client $\to$ Broker | `ACK <topic> <client_id> <msg_id>\n` | Acknowledges successful receipt and processing of message. |
+| **`PING`**| Client $\to$ Broker | `PING\n` | Heartbeat probe. |
+| **`MSG`** | Broker $\to$ Client | `MSG <topic> <msg_id> <payload>\n` | Delivers queued message to an active subscriber. |
+| **`PONG`**| Broker $\to$ Client | `PONG\n` | Heartbeat response. |
+| **`ERR`** | Broker $\to$ Client | `ERR <reason>\n` | Dispatched upon syntax error, unknown command, or protocol violation. |
+
+---
+
+## ⚙️ Broker Configuration & CLI Options
+
+The server binary accepts the following operational flags:
+
+```bash
+./bin/server [flags]
+```
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `-port` | `4222` | TCP port for client socket connections. |
+| `-retry` | `2` | Interval (in seconds) between unacknowledged message retry sweeps. |
+| `-gc-interval` | `60` | Frequency (in seconds) of background compaction and GC sweeps. |
+| `-gc-maxage` | `300` | Safety threshold (in seconds) before stale unacknowledged messages are pruned. |
+
+Persistent logs are stored locally in the `logs/` directory as `logs/<topic>.log`.
+
+---
+
+## 🔬 Performance Profiling Tools
+
+PMB includes dedicated performance validation tools in the repository:
+
+### Microsecond Latency Profiler
+Measures discrete timestamps across Publisher dispatch, broker ingress, disk `fsync`, router handoff, subscriber delivery, and ACK processing:
+```bash
 go run ./cmd/latency -single -topic orders.in -msg "Payment processed"
 ```
-```text
-================================================================
- Single-Message Lifecycle Latency Profile
- Target: localhost:4222 | Topic: orders.in | Mode: AT_LEAST_ONCE
-================================================================
-[Stage 1] Publisher Dispatched (T0)     : 23:11:08.424276
-[Stage 2] Network Ingress + Parse + Route: ~259 µs (in-broker hop)
-[Stage 3] Subscriber Delivered (T1)      : 23:11:08.424795 (Msg ID: #7)
-   ├─ Payload: Payment processed
-   └─► ONE-WAY DELIVERY LATENCY (T1 - T0): 519 µs (0.519 ms)
-[Stage 4] Subscriber Sent ACK (T2)      : 23:11:08.424795
-[Stage 5] Broker ACK Processed (T3)     : 23:11:08.424795
-   └─► FULL ROUNDTRIP LATENCY (T3 - T0)  : 519 µs (0.519 ms)
-================================================================
-```
 
-### B. High-Throughput Concurrency Benchmark
-```powershell
+### High-Throughput Concurrency Benchmark
+Spawns concurrent worker threads to saturate ingress throughput and measure group commit batching:
+```bash
 go run ./cmd/bench -n 20000 -c 10
 ```
 
 ---
 
-## 🛡️ The "Hard-Kill" Crash Recovery Test
+## 🧪 Testing & Verification
 
-To prove 100% physical durability to judges:
+Run the full automated test suite, including race condition detection:
 
-1. Connect subscriber in Terminal 2.
-2. Force-kill the subscriber (`Ctrl+C`).
-3. Publish a critical message in Terminal 3: `go run ./cmd/publisher -topic orders.in -msg "URGENT_ORDER_999"`.
-4. Inspect the on-disk WAL: `Get-Content logs/orders_in.log` (proves `W|...|URGENT_ORDER_999` is physically `fsync`'d).
-5. Kill the broker process violently (`Stop-Process -Name server -Force`).
-6. Restart the broker: `go run ./cmd/server`. Notice:
-   ```text
-   Crash Recovery: 1 unacked messages recovered from WAL
-   ```
-7. Reconnect the subscriber in Terminal 2 $\to$ **Message is instantly re-delivered with zero data loss!**
-
----
-
-## 🧪 Verification & Test Suite
-
-Run the full automated test suite (all unit tests, race detector, concurrency stress tests):
-```powershell
-go test -v ./...
+```bash
+go test -v -race ./...
 ```
-```text
-=== Router Package Tests (router) ===
-PASS: TestRouter_Route_FanOut
-PASS: TestRouter_AtMostOnce
-PASS: TestRouter_AtLeastOnce
-PASS: TestRouter_StartRetryMonitor
-PASS: TestRouter_Unsubscribe
-PASS: TestRouter_RaceClose
-PASS: TestRouter_RetryGivesUp
 
-=== Server & Network Tests (server) ===
-PASS: TestParseLine
-PASS: TestServer_PingPong
-PASS: TestServer_StickyPackets
-PASS: TestServer_PubSubAck
-PASS: TestServer_ClientDisconnectCleanup
-PASS: TestServer_OOMProtection_LargePayload
-
-=== Storage & WAL Tests (storage) ===
-PASS: TestBug1_BrokenHandleNotCleared
-PASS: TestBug2_GCClosesHandleEvenWhenNothingPruned
-PASS: TestAppendAndRecover
-PASS: TestMarkAckedFiltersOnRecover
-PASS: TestCrashRecovery
-PASS: TestGCPrunesAckedRecords
-PASS: TestConcurrentAppends
-PASS: TestPayloadWithPipes
-PASS: TestPayloadWithNewlines
-PASS: TestGCByAge_PrunesOldRecords
-PASS: TestGCByAge_DropsOrphanAckRecords
-PASS: TestGroupCommit_ConcurrentScale
-PASS: TestGC_DeltaDeduplication
-
-PASS
-ok  	PMB/router	(clean, 0 race conditions)
-ok  	PMB/server	(clean, 0 race conditions)
-ok  	PMB/storage	(clean, 0 race conditions)
-```
+The test suite covers:
+* **Router:** Subscription fan-out, QoS mode routing, concurrent unsubscriptions, 2-second retry timeouts.
+* **Server:** Sticky packet defragmentation, ASCII command parsing, bounded 1 MB OOM protection, client disconnect cleanup.
+* **Storage:** Append-only WAL recovery, crash state replay, leader/follower group commit under concurrency, dual-dial GC compaction, and delta deduplication.
 
 ---
 
 ## 📜 License
-MIT License. Open-source under permissive distribution.
+
+PMB is licensed under the [MIT License](LICENSE). Open-source under permissive distribution.
