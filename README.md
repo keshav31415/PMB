@@ -239,20 +239,49 @@ Persistent logs are stored locally in the `logs/` directory as `logs/<topic>.log
 
 ---
 
-## 🔬 Performance Profiling Tools
+## 🔬 Diagnostics & Benchmarking Suite (`cmd/bench`)
 
-PMB includes dedicated performance validation tools in the repository:
+PMB includes a unified, modular benchmarking and diagnostic tool designed to test performance across multiple dimensions:
 
-### Microsecond Latency Profiler
-Measures discrete timestamps across Publisher dispatch, broker ingress, disk `fsync`, router handoff, subscriber delivery, and ACK processing:
 ```bash
-go run ./cmd/latency -single -topic orders.in -msg "Payment processed"
+./bin/bench [flags]
 ```
 
-### High-Throughput Concurrency Benchmark
-Spawns concurrent worker threads to saturate ingress throughput and measure group commit batching:
+### CLI Modifiers & Flags
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `-trace` | `false` | Trace a single message across all 5 in-broker lifecycle stages with microsecond timestamps. |
+| `-n` | `10000` | Total number of messages to publish. |
+| `-c` | `8` | Number of concurrent publisher connections. |
+| `-size` | `128` | Payload size in bytes (e.g., `64`, `1024`, `4096`). |
+| `-mode` | `AT_LEAST_ONCE` | Delivery mode: `AT_LEAST_ONCE` (durable WAL + ACK) or `AT_MOST_ONCE` (ephemeral). |
+| `-subs` | `1` | Number of concurrent fan-out subscriber clients. |
+| `-lat` | `false` | Enable latency tracking and output full SLA percentiles ($P_{50}, P_{90}, P_{95}, P_{99}$, Min, Max). |
+| `-rate` | `0` | Target publish rate in msgs/sec (`0` = unthrottled maximum throughput). |
+| `-addr` | `localhost:4222` | Target broker address. |
+| `-topic` | `perf.bench` | Target topic name. |
+
+### Standard Benchmark Recipes
+
 ```bash
-go run ./cmd/bench -n 20000 -c 10
+# 1. Single-Message Lifecycle Diagnostics (Hop-by-hop latency breakdown)
+go run ./cmd/bench -trace
+
+# 2. Maximum Persistent Throughput (Group Commit under 10 concurrent producers)
+go run ./cmd/bench -n 20000 -c 10 -mode AT_LEAST_ONCE
+
+# 3. Durability Overhead Comparison (Physical fsync vs Ephemeral In-Memory)
+go run ./cmd/bench -n 20000 -c 10 -mode AT_MOST_ONCE
+
+# 4. Large-Payload Bandwidth Test (4 KB enterprise JSON blobs)
+go run ./cmd/bench -n 10000 -c 8 -size 4096
+
+# 5. Full SLA Latency Distribution under Load (P50, P90, P99 report)
+go run ./cmd/bench -n 10000 -c 8 -lat
+
+# 6. Fan-Out Broadcast Scalability (1 publisher to 4 concurrent subscribers)
+go run ./cmd/bench -n 5000 -c 4 -subs 4
 ```
 
 ---
