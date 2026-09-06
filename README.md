@@ -1,10 +1,11 @@
 # PMB: Persistent Message Broker 🚀
 ### *Ultra-Lightweight, Crash-Resilient Pub/Sub Broker for Edge & Hypervisor Infrastructure*
 
-[![Go Test](https://img.shields.io/badge/Tests-26%2F26%20Passed-brightgreen)](file:///d:/persistant_message_broker)
-[![Binary Size](https://img.shields.io/badge/Binary-3.78%20MB-blue)](file:///d:/persistant_message_broker)
-[![Memory Footprint](https://img.shields.io/badge/RAM-7.18%20MB-success)](file:///d:/persistant_message_broker)
-[![Dependencies](https://img.shields.io/badge/Dependencies-0%20(Stdlib%20Only)-orange)](file:///d:/persistant_message_broker/go.mod)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat)](https://github.com/keshav31415/PMB)
+[![Architecture](https://img.shields.io/badge/architecture-Micro--Broker-blueviolet?style=flat)](https://github.com/keshav31415/PMB)
+[![Dependencies](https://img.shields.io/badge/dependencies-0%20(stdlib%20only)-orange?style=flat)](file:///d:/persistant_message_broker/go.mod)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](https://github.com/keshav31415/PMB)
 
 Inspired by **NATS JetStream**, **PMB** is an ultra-compact, high-durability message broker built from scratch in standard Go. It is engineered specifically for **resource-constrained edge nodes, microVMs, and hypervisor control-planes** (e.g. Nutanix AHV/AOS/Prism clusters) where heavy enterprise brokers like Apache Kafka or RabbitMQ are too bloated to run.
 
@@ -279,7 +280,10 @@ PASS: TestGCByAge_DropsOrphanAckRecords
 PASS: TestGroupCommit_ConcurrentScale
 PASS: TestGC_DeltaDeduplication
 
-TOTAL: 26/26 PASSED (0 failures, 0 race conditions)
+PASS
+ok  	PMB/router	(clean, 0 race conditions)
+ok  	PMB/server	(clean, 0 race conditions)
+ok  	PMB/storage	(clean, 0 race conditions)
 ```
 
 ---
