@@ -84,7 +84,7 @@ All network communication over the TCP socket uses newline-delimited (`\n`) ASCI
 * **Lock-Free Concurrency:** If operating in a multi-threaded context, use lock-free queues or atomic operations to manage the routing table, mimicking high-frequency trading architectures.
 
 **Agent Prompt for Member 2:**
-> "Phase 2: Implement core routing and 'At-Least-Once' tracking. Create a state manager mapping topics to active clients. Implement `PUB` logic to fan out messages. For 'At-Least-Once' clients, maintain a `pending_acks` dictionary tracking `msg_id` and timestamps. Implement `ACK` logic to remove these IDs. Run a background monitor that re-queues messages older than 2 seconds without an ACK. Expose `route(topic, payload)` and `process_ack(topic, msg_id)` methods."
+> "Phase 2: Implement core routing and 'At-Least-Once' tracking. Create a state manager mapping topics to active clients. Implement `PUB` logic to fan out messages. For 'At-Least-Once' clients, maintain a `pending_acks` dictionary tracking `msg_id` and timestamps. Implement `ACK` logic to remove these IDs. Run a background monitor that re-queues messages older than 2 seconds without an ACK. Expose `route(topic, payload)` and `process_ack(topic, client_id, msg_id)` methods."
 
 ---
 
@@ -107,3 +107,99 @@ All network communication over the TCP socket uses newline-delimited (`\n`) ASCI
 
 **Agent Prompt for Member 3:**
 > "Phase 3: Implement the Write-Ahead Log (WAL) and retention policy. Create a storage engine appending to `<topic>.log`. Format: `[Timestamp] [msg_id] [Payload]\n`. Call `fsync` immediately after every write to commit to disk. Write a recovery function to parse these files on server boot. Implement an 'Interest-Based' retention cleanup function that deletes a log file only when triggered by the router confirming all active consumers have acknowledged the data."
+
+---
+
+## 5. Status Update: Member 2 (The Traffic Cop) — Routing & Delivery
+
+**Status: Complete, tested, and pushed.** This section documents what was built, what
+changed along the way, and exactly what Member 1 and Member 3 need to know before
+integrating against this package.
+
+### What was built
+
+The `router` package (`router/router.go`) implements the full Phase 2 spec:
+
+- A concurrency-safe `topic -> clientID -> Subscriber` map.
+- `AT_MOST_ONCE`: immediate fan-out, no tracking, no retries.
+- `AT_LEAST_ONCE`: messages are tracked in a `pendingAcks` map keyed by
+  `(topic, clientID, msgID)` until acknowledged.
+- A background retry monitor (`StartRetryMonitor`) that re-sends unacknowledged
+  messages after a configurable timeout, with a bounded retry cap (`MaxRetries = 5`)
+  so a client that vanishes without disconnecting cleanly doesn't get retried forever.
+- Clean subscriber lifecycle: `Unsubscribe` safely closes a client's channel exactly
+  once and purges any of its pending acks, with no possibility of a send/close race
+  (see "Bugs found and fixed" below).
+
+### Public API (what Member 1 and Member 3 build against)
+
+```go
+router.New(store StorageEngine) *Router
+
+(r *Router) Subscribe(topic, clientID, mode string, out chan<- string)
+(r *Router) Unsubscribe(topic, clientID string)
+(r *Router) Route(topic, msgID, payload string)
+(r *Router) ProcessAck(topic, clientID, msgID string)
+(r *Router) StartRetryMonitor(ctx context.Context, timeout time.Duration)
+
+type StorageEngine interface {
+    MarkAcked(topic, msgID string) error
+}
+```
+
+### What this means for Member 1 (Doorman)
+
+- On every new `SUB <topic> <client_id> <mode>`, call `router.Subscribe(...)` with a
+  channel you own the receiving end of. The router only ever sends into it.
+- On **every** disconnect — clean or abrupt (dropped socket, `BrokenPipeError`, etc.) —
+  call `router.Unsubscribe(topic, clientID)`. **Do not close the channel yourself.**
+  The router closes it internally as part of `Unsubscribe`, under its own lock, to
+  guarantee it can never race with an in-flight `Route()` send. Closing it externally
+  reintroduces a real data race we hit and fixed during development (see below).
+- On `ACK <topic> <client_id> <msg_id>`, call `router.ProcessAck(...)`.
+- On `PUB <topic> <payload>`, generate a `msg_id` and call `router.Route(topic, msgID, payload)`.
+- A working, runnable example of this entire lifecycle exists at
+  `cmd/smoketest/main.go` — run `go run ./cmd/smoketest` to see subscribe → publish →
+  deliver → ack → retry-on-no-ack → unsubscribe → channel-closed happen end-to-end
+  with an in-memory stand-in for your connection and Member 3's storage.
+
+### What this means for Member 3 (Archivist)
+
+- Implement `StorageEngine.MarkAcked(topic, msgID string) error` on your WAL. This is
+  the only method the router calls into your code — it's invoked from `ProcessAck`
+  right after a message is confirmed delivered, so it's your hook for the
+  "Interest-Based Retention" idea (this is the trigger you can use to check whether
+  all active consumers have now acked a segment).
+- Currently `ProcessAck` swallows any error `MarkAcked` returns (best-effort, logged
+  nowhere yet). Flag if you want that to surface differently (e.g. logged, or
+  retried) before the demo.
+
+### Bugs found and fixed along the way (for context, not action needed)
+
+1. **`ackKey` didn't scope by topic** — could collide if `msgID`s aren't globally
+   unique across topics. Fixed by keying on `(topic, clientID, msgID)`.
+2. **`pendingAcks` wasn't cleaned up on `Unsubscribe`** — a disconnected client's
+   unacked messages would retry forever. Fixed: `Unsubscribe` now purges them.
+3. **Data race on subscriber channel close** — an earlier version relied on
+   `recover()` to survive a send-on-closed-channel panic. The Go race detector
+   (`go test -race`) correctly flagged this as unsafe regardless of the recover,
+   since concurrent close/send on the same channel is undefined behavior. Fixed
+   properly: `Subscriber` now owns its channel privately, guarded by its own mutex,
+   with `send()`/`close()` methods that can never race. This is why `Subscriber.Out`
+   is no longer a public field — **any code that used to touch it directly needs to
+   go through `Router` methods instead.**
+4. **Unbounded retries** — added `MaxRetries` cap with a log line when a message is
+   finally given up on.
+
+### Testing
+
+- `go test -v -race ./router` — 8 tests, 0 data races (verified across 10 consecutive
+  runs).
+- `go run ./cmd/smoketest` — full manual lifecycle verification, safe to delete once
+  real Member 1 / Member 3 code exists and is integrated.
+
+### Still open (not blocking, worth a heads-up)
+
+- Retry cap (`MaxRetries`) is a hardcoded constant, not configurable via `New()` yet.
+- No stateful consumer offsets (the "Innovation" stretch goal) implemented yet —
+  possible if time allows after core integration.
