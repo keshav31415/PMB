@@ -22,12 +22,20 @@ func main() {
 	}
 	defer conn.Close()
 
-	if *msg != "" {
-		line := fmt.Sprintf("PUB %s %s\n", *topic, *msg)
+	payload := *msg
+	if len(flag.Args()) > 0 {
+		if payload != "" {
+			payload += " "
+		}
+		payload += strings.Join(flag.Args(), " ")
+	}
+
+	if payload != "" {
+		line := fmt.Sprintf("PUB %s %s\n", *topic, payload)
 		if _, err := conn.Write([]byte(line)); err != nil {
 			log.Fatalf("failed to send: %v", err)
 		}
-		fmt.Printf("Published to [%s]: %s\n", *topic, *msg)
+		fmt.Printf("Published to [%s]: %s\n", *topic, payload)
 		return
 	}
 
