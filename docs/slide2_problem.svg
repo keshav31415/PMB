@@ -13,17 +13,14 @@
     </linearGradient>
   </defs>
 
-  <!-- Background -->
   <rect width="1100" height="360" fill="#131B2B"/>
 
-  <!-- ================= PIPELINE A ================= -->
+  <!-- ROUTE A -->
   <g transform="translate(20, 15)">
-    <!-- Container -->
     <rect width="1060" height="150" rx="10" fill="url(#routeAGrad)" stroke="#F87171" stroke-width="1.5"/>
     <rect x="15" y="10" width="460" height="24" rx="4" fill="#4C1D24"/>
     <text x="25" y="26" fill="#FCA5A5" font-family="Arial" font-size="11.5" font-weight="bold">ROUTE A: HEAVY ENTERPRISE BROKERS (Kafka, RabbitMQ, ActiveMQ)</text>
 
-    <!-- Step 1: Producer -->
     <g transform="translate(25, 45)">
       <rect width="160" height="85" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
       <text x="15" y="25" fill="#FFFFFF" font-family="Arial" font-size="12" font-weight="bold">MicroVM Ingress</text>
@@ -31,10 +28,8 @@
       <text x="15" y="65" fill="#94A3B8" font-family="Arial" font-size="10">Thick client libraries</text>
     </g>
 
-    <!-- Arrow 1 -> 2 -->
     <path d="M 190 88 L 220 88" stroke="#F87171" stroke-width="2" marker-end="url(#arrow-red)"/>
 
-    <!-- Step 2: Runtime Bloat -->
     <g transform="translate(225, 45)">
       <rect width="185" height="85" rx="6" fill="#1E293B" stroke="#F87171" stroke-width="1.2"/>
       <text x="12" y="25" fill="#FFFFFF" font-family="Arial" font-size="12" font-weight="bold">JVM / BEAM Runtime</text>
@@ -42,10 +37,8 @@
       <text x="12" y="65" fill="#94A3B8" font-family="Arial" font-size="10">Exceeds edge memory cap</text>
     </g>
 
-    <!-- Arrow 2 -> 3 -->
     <path d="M 415 88 L 445 88" stroke="#F87171" stroke-width="2" marker-end="url(#arrow-red)"/>
 
-    <!-- Step 3: Quorum Election -->
     <g transform="translate(450, 45)">
       <rect width="185" height="85" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
       <text x="12" y="25" fill="#FFFFFF" font-family="Arial" font-size="12" font-weight="bold">Cluster Quorum</text>
@@ -53,10 +46,8 @@
       <text x="12" y="65" fill="#94A3B8" font-family="Arial" font-size="10">15–45s boot delay</text>
     </g>
 
-    <!-- Arrow 3 -> 4 -->
     <path d="M 640 88 L 670 88" stroke="#F87171" stroke-width="2" marker-end="url(#arrow-red)"/>
 
-    <!-- Step 4: Static Retention -->
     <g transform="translate(675, 45)">
       <rect width="180" height="85" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
       <text x="12" y="25" fill="#FFFFFF" font-family="Arial" font-size="12" font-weight="bold">Static Retention</text>
@@ -64,10 +55,8 @@
       <text x="12" y="65" fill="#94A3B8" font-family="Arial" font-size="10">Fills /var root disk</text>
     </g>
 
-    <!-- Arrow 4 -> 5 -->
     <path d="M 860 88 L 890 88" stroke="#F87171" stroke-width="2" marker-end="url(#arrow-red)"/>
 
-    <!-- Step 5: Failure Outcome -->
     <g transform="translate(895, 45)">
       <rect width="145" height="85" rx="6" fill="#58151C" stroke="#F87171" stroke-width="1.5"/>
       <text x="12" y="25" fill="#FCA5A5" font-family="Arial" font-size="12" font-weight="bold">CRITICAL FAIL</text>
@@ -76,14 +65,12 @@
     </g>
   </g>
 
-  <!-- ================= PIPELINE B ================= -->
+  <!-- ROUTE B -->
   <g transform="translate(20, 185)">
-    <!-- Container -->
     <rect width="1060" height="150" rx="10" fill="url(#routeBGrad)" stroke="#FBBF24" stroke-width="1.5"/>
     <rect x="15" y="10" width="460" height="24" rx="4" fill="#4A2612"/>
     <text x="25" y="26" fill="#FDE68A" font-family="Arial" font-size="11.5" font-weight="bold">ROUTE B: EPHEMERAL IN-MEMORY IPC (Redis Pub/Sub, ZeroMQ, Nanomsg)</text>
 
-    <!-- Step 1: Producer -->
     <g transform="translate(25, 45)">
       <rect width="160" height="85" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
       <text x="15" y="25" fill="#FFFFFF" font-family="Arial" font-size="12" font-weight="bold">MicroVM Ingress</text>
@@ -91,10 +78,8 @@
       <text x="15" y="65" fill="#94A3B8" font-family="Arial" font-size="10">Fast socket write</text>
     </g>
 
-    <!-- Arrow 1 -> 2 -->
     <path d="M 190 88 L 220 88" stroke="#FBBF24" stroke-width="2" marker-end="url(#arrow-red)"/>
 
-    <!-- Step 2: Volatile Buffer -->
     <g transform="translate(225, 45)">
       <rect width="185" height="85" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
       <text x="12" y="25" fill="#FFFFFF" font-family="Arial" font-size="12" font-weight="bold">User-Space Ring Buffer</text>
@@ -102,10 +87,8 @@
       <text x="12" y="65" fill="#94A3B8" font-family="Arial" font-size="10">High throughput, 0 disk</text>
     </g>
 
-    <!-- Arrow 2 -> 3 -->
     <path d="M 415 88 L 445 88" stroke="#FBBF24" stroke-width="2" marker-end="url(#arrow-red)"/>
 
-    <!-- Step 3: Unsynchronized RAM Heap -->
     <g transform="translate(450, 45)">
       <rect width="185" height="85" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
       <text x="12" y="25" fill="#FFFFFF" font-family="Arial" font-size="12" font-weight="bold">Unsynchronized Heap</text>
@@ -113,10 +96,8 @@
       <text x="12" y="65" fill="#94A3B8" font-family="Arial" font-size="10">Bytes sit in dirty pages</text>
     </g>
 
-    <!-- Arrow 3 -> 4 -->
     <path d="M 640 88 L 670 88" stroke="#F87171" stroke-width="2" marker-end="url(#arrow-red)"/>
 
-    <!-- Step 4: Host Crash Event -->
     <g transform="translate(675, 45)">
       <rect width="180" height="85" rx="6" fill="#3D1A1A" stroke="#F87171" stroke-width="1.2"/>
       <text x="12" y="25" fill="#FDE68A" font-family="Arial" font-size="12" font-weight="bold">⚡ Sudden Power Cut</text>
@@ -124,10 +105,8 @@
       <text x="12" y="65" fill="#94A3B8" font-family="Arial" font-size="10">Hypervisor node drop</text>
     </g>
 
-    <!-- Arrow 4 -> 5 -->
     <path d="M 860 88 L 890 88" stroke="#F87171" stroke-width="2" marker-end="url(#arrow-red)"/>
 
-    <!-- Step 5: Failure Outcome -->
     <g transform="translate(895, 45)">
       <rect width="145" height="85" rx="6" fill="#58151C" stroke="#F87171" stroke-width="1.5"/>
       <text x="12" y="25" fill="#FCA5A5" font-family="Arial" font-size="12" font-weight="bold">CRITICAL FAIL</text>

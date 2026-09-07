@@ -3,32 +3,23 @@
     <marker id="arrow-pipe" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
       <path d="M 0 1 L 10 5 L 0 9 z" fill="#38BDF8"/>
     </marker>
-    <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-      <path d="M 0 1 L 10 5 L 0 9 z" fill="#34D399"/>
-    </marker>
-    <marker id="arrow-purple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-      <path d="M 0 1 L 10 5 L 0 9 z" fill="#818CF8"/>
-    </marker>
     <linearGradient id="pipeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#142236"/>
       <stop offset="100%" stop-color="#0B131F"/>
     </linearGradient>
   </defs>
 
-  <!-- Background -->
   <rect width="1100" height="380" fill="#131B2B"/>
 
-  <!-- Outer Boundary Container -->
   <rect x="20" y="15" width="1060" height="350" rx="10" fill="url(#pipeGrad)" stroke="#233A5E" stroke-width="1.5"/>
   <rect x="35" y="8" width="560" height="24" rx="4" fill="#1A2D4A" stroke="#38BDF8" stroke-width="1"/>
   <text x="45" y="24" fill="#38BDF8" font-family="Arial" font-size="11.5" font-weight="bold" letter-spacing="0.5">PMB CORE DATA PATHWAY: FROM RAW BYTES TO HARDWARE FSYNC &amp; COMPACTION</text>
 
-  <!-- Stage 1: Network Ingress & Framed Parser -->
+  <!-- Stage 1 -->
   <g transform="translate(35, 45)">
     <rect width="180" height="220" rx="8" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
     <rect x="10" y="10" width="160" height="24" rx="4" fill="#0C344E"/>
     <text x="18" y="26" fill="#38BDF8" font-family="Arial" font-size="11" font-weight="bold">STAGE 1: INGRESS</text>
-
     <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">Zero-Copy Parser</text>
     <text x="15" y="76" fill="#38BDF8" font-family="Arial" font-size="10.5" font-weight="bold">Framed ASCII Engine</text>
 
@@ -42,15 +33,13 @@
     <text x="18" y="195" fill="#34D399" font-family="Arial" font-size="10">O(1) memory alloc</text>
   </g>
 
-  <!-- Flow Arrow 1 -> 2 -->
   <path d="M 220 155 L 245 155" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-pipe)"/>
 
-  <!-- Stage 2: Lock-Free Atomic Queue -->
+  <!-- Stage 2 -->
   <g transform="translate(250, 45)">
     <rect width="180" height="220" rx="8" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
     <rect x="10" y="10" width="160" height="24" rx="4" fill="#0C344E"/>
     <text x="18" y="26" fill="#38BDF8" font-family="Arial" font-size="11" font-weight="bold">STAGE 2: ATOMIC</text>
-
     <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">Treiber CAS Stack</text>
     <text x="15" y="76" fill="#34D399" font-family="Arial" font-size="10.5" font-weight="bold">sync/atomic Pointer</text>
 
@@ -62,15 +51,13 @@
     <text x="18" y="193" fill="#94A3B8" font-family="Arial" font-size="10">starvation spikes</text>
   </g>
 
-  <!-- Flow Arrow 2 -> 3 -->
   <path d="M 435 155 L 460 155" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-pipe)"/>
 
-  <!-- Stage 3: Dynamic Group Commit -->
+  <!-- Stage 3 -->
   <g transform="translate(465, 45)">
     <rect width="185" height="220" rx="8" fill="#1E293B" stroke="#34D399" stroke-width="1.5"/>
     <rect x="10" y="10" width="165" height="24" rx="4" fill="#0E3D2D"/>
     <text x="18" y="26" fill="#34D399" font-family="Arial" font-size="11" font-weight="bold">STAGE 3: DURABILITY</text>
-
     <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">Group Commit WAL</text>
     <text x="15" y="76" fill="#34D399" font-family="Arial" font-size="10.5" font-weight="bold">Hardware fsync Barrier</text>
 
@@ -82,15 +69,13 @@
     <text x="18" y="195" fill="#94A3B8" font-family="Arial" font-size="10">Zero-loss power drops</text>
   </g>
 
-  <!-- Flow Arrow 3 -> 4 -->
   <path d="M 655 155 L 680 155" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-pipe)"/>
 
-  <!-- Stage 4: Routing & pendingAcks -->
+  <!-- Stage 4 -->
   <g transform="translate(685, 45)">
     <rect width="180" height="220" rx="8" fill="#1E293B" stroke="#818CF8" stroke-width="1.5"/>
     <rect x="10" y="10" width="160" height="24" rx="4" fill="#291F47"/>
     <text x="18" y="26" fill="#C4B5FD" font-family="Arial" font-size="11" font-weight="bold">STAGE 4: DISPATCH</text>
-
     <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">Route &amp; Tracking</text>
     <text x="15" y="76" fill="#818CF8" font-family="Arial" font-size="10.5" font-weight="bold">sync.RWMutex Fan-Out</text>
 
@@ -102,15 +87,13 @@
     <text x="18" y="195" fill="#94A3B8" font-family="Arial" font-size="10">At-least-once guarantee</text>
   </g>
 
-  <!-- Flow Arrow 4 -> 5 -->
   <path d="M 870 155 L 895 155" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-pipe)"/>
 
-  <!-- Stage 5: ACK Compaction & Truncation -->
+  <!-- Stage 5 -->
   <g transform="translate(900, 45)">
     <rect width="165" height="220" rx="8" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
     <rect x="10" y="10" width="145" height="24" rx="4" fill="#0C344E"/>
     <text x="18" y="26" fill="#38BDF8" font-family="Arial" font-size="11" font-weight="bold">STAGE 5: RECLAIM</text>
-
     <text x="15" y="58" fill="#FFFFFF" font-family="Arial" font-size="13" font-weight="bold">ACK Compaction</text>
     <text x="15" y="76" fill="#38BDF8" font-family="Arial" font-size="10.5" font-weight="bold">Instant Log Truncation</text>
 

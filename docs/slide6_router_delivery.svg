@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 360" width="100%" height="100%">
+  <defs>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#34D399"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#FBBF24"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#818CF8"/>
+    </marker>
+    <linearGradient id="routeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#191B2E"/>
+      <stop offset="100%" stop-color="#0E0F1D"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1100" height="360" fill="#131B2B"/>
+
+  <!-- Outer Container -->
+  <rect x="20" y="15" width="1060" height="330" rx="10" fill="url(#routeGrad)" stroke="#312E5C" stroke-width="1.5"/>
+  <rect x="35" y="10" width="580" height="24" rx="4" fill="#241E45" stroke="#818CF8" stroke-width="1"/>
+  <text x="45" y="26" fill="#C4B5FD" font-family="Arial" font-size="11.5" font-weight="bold">DUAL-TRACK EGRESS ENGINE: HAPPY PATH VS. WORKER CRASH TIMEOUT</text>
+
+  <!-- Track A: Normal Delivery (Happy Path) -->
+  <g transform="translate(35, 45)">
+    <rect width="1030" height="135" rx="8" fill="#122521" stroke="#34D399" stroke-width="1.2"/>
+    <rect x="15" y="10" width="220" height="22" rx="4" fill="#0E382A"/>
+    <text x="22" y="25" fill="#34D399" font-family="Arial" font-size="10.5" font-weight="bold">TRACK A: HAPPY PATH (NORMAL ACK)</text>
+
+    <!-- Step 1: Dispatch -->
+    <g transform="translate(25, 42)">
+      <rect width="190" height="70" rx="6" fill="#1E293B" stroke="#38BDF8" stroke-width="1"/>
+      <text x="12" y="22" fill="#FFFFFF" font-family="Arial" font-size="10.5" font-weight="bold">1. Broker Dispatch</text>
+      <text x="12" y="40" fill="#94A3B8" font-family="monospace" font-size="9.5">MSG orders 101 {"item"}</text>
+      <text x="12" y="58" fill="#38BDF8" font-family="Arial" font-size="9">Inserts into pendingAcks</text>
+    </g>
+
+    <path d="M 220 77 L 260 77" stroke="#34D399" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+    <!-- Step 2: Consumer Receives -->
+    <g transform="translate(265, 42)">
+      <rect width="200" height="70" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
+      <text x="12" y="22" fill="#FFFFFF" font-family="Arial" font-size="10.5" font-weight="bold">2. MicroVM Consumer</text>
+      <text x="12" y="40" fill="#FFFFFF" font-family="Arial" font-size="9.5">Processes payload in user-space</text>
+      <text x="12" y="58" fill="#94A3B8" font-family="Arial" font-size="9">Execution duration: ~0.5ms</text>
+    </g>
+
+    <path d="M 470 77 L 510 77" stroke="#34D399" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+    <!-- Step 3: ACK Returned -->
+    <g transform="translate(515, 42)">
+      <rect width="210" height="70" rx="6" fill="#1E293B" stroke="#38BDF8" stroke-width="1"/>
+      <text x="12" y="22" fill="#FFFFFF" font-family="Arial" font-size="10.5" font-weight="bold">3. Consumer Sends ACK</text>
+      <text x="12" y="40" fill="#94A3B8" font-family="monospace" font-size="9.5">ACK orders 101
+</text>
+      <text x="12" y="58" fill="#34D399" font-family="Arial" font-size="9">Returns via socket stream</text>
+    </g>
+
+    <path d="M 730 77 L 770 77" stroke="#34D399" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+    <!-- Step 4: Reclaim Offset -->
+    <g transform="translate(775, 42)">
+      <rect width="230" height="70" rx="6" fill="#0C251C" stroke="#34D399" stroke-width="1.5"/>
+      <text x="12" y="22" fill="#34D399" font-family="Arial" font-size="10.5" font-weight="bold">4. Map Delete &amp; Timer Kill</text>
+      <text x="12" y="40" fill="#FFFFFF" font-family="Arial" font-size="9.5">delete(pendingAcks, 101)</text>
+      <text x="12" y="58" fill="#94A3B8" font-family="Arial" font-size="9">Reclaims offset in memory instantly</text>
+    </g>
+  </g>
+
+  <!-- Track B: Worker Crash & Auto-Retry -->
+  <g transform="translate(35, 190)">
+    <rect width="1030" height="145" rx="8" fill="#24151B" stroke="#F87171" stroke-width="1.2"/>
+    <rect x="15" y="10" width="310" height="22" rx="4" fill="#4A181D"/>
+    <text x="22" y="25" fill="#FCA5A5" font-family="Arial" font-size="10.5" font-weight="bold">TRACK B: FAULT RECOVERY (WORKER CRASH / TIMEOUT)</text>
+
+    <!-- Step 1: Dispatched with Timer -->
+    <g transform="translate(25, 42)">
+      <rect width="190" height="80" rx="6" fill="#1E293B" stroke="#38BDF8" stroke-width="1"/>
+      <text x="12" y="20" fill="#FFFFFF" font-family="Arial" font-size="10.5" font-weight="bold">1. Dispatched with Timer</text>
+      <text x="12" y="38" fill="#94A3B8" font-family="monospace" font-size="9.5">MSG orders 202 {"item"}</text>
+      <text x="12" y="56" fill="#FBBF24" font-family="Arial" font-size="9" font-weight="bold">2.000s Deadline Armed</text>
+      <text x="12" y="72" fill="#94A3B8" font-family="Arial" font-size="8.5">time.AfterFunc(2*time.Second)</text>
+    </g>
+
+    <path d="M 220 82 L 260 82" stroke="#F87171" stroke-width="2" marker-end="url(#arrow-red)"/>
+
+    <!-- Step 2: Consumer Crash -->
+    <g transform="translate(265, 42)">
+      <rect width="200" height="80" rx="6" fill="#3D1217" stroke="#F87171" stroke-width="1.5"/>
+      <text x="12" y="20" fill="#FCA5A5" font-family="Arial" font-size="10.5" font-weight="bold">⚡ Consumer VM Crashes</text>
+      <text x="12" y="38" fill="#FFFFFF" font-family="Arial" font-size="9.5">OOM panic or host failover</text>
+      <text x="12" y="56" fill="#FDE68A" font-family="Arial" font-size="9">Socket breaks abruptly</text>
+      <text x="12" y="72" fill="#FCA5A5" font-family="Arial" font-size="8.5">NO ACK emitted to broker</text>
+    </g>
+
+    <path d="M 470 82 L 510 82" stroke="#FBBF24" stroke-width="2" marker-end="url(#arrow-amber)"/>
+
+    <!-- Step 3: Timer Fires -->
+    <g transform="translate(515, 42)">
+      <rect width="210" height="80" rx="6" fill="#2E2012" stroke="#FBBF24" stroke-width="1.5"/>
+      <text x="12" y="20" fill="#FDE68A" font-family="Arial" font-size="10.5" font-weight="bold">3. 2.0s Timer Fires</text>
+      <text x="12" y="38" fill="#FFFFFF" font-family="Arial" font-size="9.5">pendingAcks detect missing ACK</text>
+      <text x="12" y="56" fill="#FBBF24" font-family="Arial" font-size="9">Selects healthy standby worker</text>
+      <text x="12" y="72" fill="#94A3B8" font-family="Arial" font-size="8.5">or waits for client reconnect</text>
+    </g>
+
+    <path d="M 730 82 L 770 82" stroke="#818CF8" stroke-width="2" marker-end="url(#arrow-purple)"/>
+
+    <!-- Step 4: Redelivery -->
+    <g transform="translate(775, 42)">
+      <rect width="230" height="80" rx="6" fill="#1C1838" stroke="#818CF8" stroke-width="1.5"/>
+      <text x="12" y="20" fill="#C4B5FD" font-family="Arial" font-size="10.5" font-weight="bold">4. Automatic Redelivery</text>
+      <text x="12" y="38" fill="#FFFFFF" font-family="monospace" font-size="9.5">MSG orders 202 (Retry)</text>
+      <text x="12" y="56" fill="#34D399" font-family="Arial" font-size="9" font-weight="bold">At-Least-Once Guarantee</text>
+      <text x="12" y="72" fill="#94A3B8" font-family="Arial" font-size="8.5">Client suppresses dupes idempotently</text>
+    </g>
+  </g>
+</svg>

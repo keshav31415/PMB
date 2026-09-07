@@ -23,7 +23,6 @@
     </linearGradient>
   </defs>
 
-  <!-- Background -->
   <rect width="1100" height="600" fill="#131B2B"/>
 
   <!-- Outer Boundary: Hypervisor Host Platform -->
@@ -61,7 +60,6 @@
     <text x="40" y="90" fill="#FFFFFF" font-family="Arial" font-size="12" font-weight="bold">1. TCP Ingress (:4222)</text>
     <text x="40" y="112" fill="#94A3B8" font-family="Arial" font-size="11">Non-blocking net.Conn reader • 1MB input buffer</text>
 
-    <!-- Arrow down -->
     <path d="M 190 130 L 190 155" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrow-cyan)"/>
 
     <!-- Box 2: Lock-Free Atomic Treiber Stack -->
@@ -70,7 +68,6 @@
     <text x="40" y="206" fill="#34D399" font-family="Arial" font-size="11" font-weight="bold">sync/atomic CAS Ingress (No Mutex)</text>
     <text x="40" y="224" fill="#94A3B8" font-family="Arial" font-size="11">Zero lock contention across 50+ microVM producers</text>
 
-    <!-- Arrow down -->
     <path d="M 190 235 L 190 260" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrow-cyan)"/>
 
     <!-- Box 3: Dynamic Group Commit -->
@@ -79,7 +76,6 @@
     <text x="40" y="311" fill="#FBBF24" font-family="Arial" font-size="11" font-weight="bold">Leader/Follower Batching Barrier</text>
     <text x="40" y="329" fill="#94A3B8" font-family="Arial" font-size="11">Coalesces N incoming writes into 1 hardware fsync()</text>
 
-    <!-- Arrow down -->
     <path d="M 190 340 L 190 365" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrow-cyan)"/>
 
     <!-- Box 4: Routing Table & pendingAcks -->
@@ -88,7 +84,6 @@
     <text x="40" y="416" fill="#818CF8" font-family="Arial" font-size="11" font-weight="bold">pendingAcks Map &amp; 2-Second Retransmit</text>
     <text x="40" y="434" fill="#94A3B8" font-family="Arial" font-size="11">Immediate offset truncation upon subscriber ACK</text>
 
-    <!-- Footer specs chip -->
     <rect x="25" y="455" width="330" height="22" rx="4" fill="#0C1B2E"/>
     <text x="45" y="470" fill="#38BDF8" font-family="Arial" font-size="10.5" font-weight="bold">BINARY: 3.78 MB  |  IDLE RESIDENT RAM: 7.18 MB</text>
   </g>
@@ -125,22 +120,18 @@
   </g>
 
   <!-- Connectors -->
-  <!-- 1. PUB stream from VM1 to PMB -->
   <path d="M 305 210 L 350 210" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-cyan)"/>
   <rect x="290" y="188" width="80" height="20" rx="4" fill="#0F172A" stroke="#38BDF8" stroke-width="1"/>
   <text x="296" y="202" fill="#38BDF8" font-family="Arial" font-size="10" font-weight="bold">1. TCP PUB</text>
 
-  <!-- 2. fsync to NVMe -->
   <path d="M 740 330 L 780 370" stroke="#34D399" stroke-width="2.5" marker-end="url(#arrow-emerald)"/>
   <rect x="710" y="340" width="95" height="20" rx="4" fill="#0F172A" stroke="#34D399" stroke-width="1"/>
   <text x="716" y="354" fill="#34D399" font-family="Arial" font-size="10" font-weight="bold">2. Hard f.Sync()</text>
 
-  <!-- 3. MSG dispatch to VM2 -->
   <path d="M 740 400 L 770 400 L 770 200 L 780 200" stroke="#818CF8" stroke-width="2.5" fill="none" marker-end="url(#arrow-purple)"/>
   <rect x="705" y="260" width="100" height="20" rx="4" fill="#0F172A" stroke="#818CF8" stroke-width="1"/>
   <text x="711" y="274" fill="#818CF8" font-family="Arial" font-size="10" font-weight="bold">3. Guaranteed MSG</text>
 
-  <!-- 4. ACK back to PMB -->
   <path d="M 790 230 L 750 230" stroke="#38BDF8" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrow-cyan)"/>
   <rect x="720" y="215" width="70" height="18" rx="4" fill="#0F172A" stroke="#38BDF8" stroke-width="1"/>
   <text x="726" y="228" fill="#38BDF8" font-family="Arial" font-size="9.5" font-weight="bold">4. Stream ACK</text>

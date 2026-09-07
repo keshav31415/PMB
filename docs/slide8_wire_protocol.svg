@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 360" width="100%" height="100%">
+  <defs>
+    <linearGradient id="wireGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#142138"/>
+      <stop offset="100%" stop-color="#0C1524"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1100" height="360" fill="#131B2B"/>
+
+  <rect x="20" y="15" width="1060" height="330" rx="10" fill="url(#wireGrad)" stroke="#233B61" stroke-width="1.5"/>
+  <rect x="35" y="10" width="560" height="24" rx="4" fill="#182C4A" stroke="#38BDF8" stroke-width="1"/>
+  <text x="45" y="26" fill="#38BDF8" font-family="Arial" font-size="11.5" font-weight="bold">ZERO-SDK POSIX PROTOCOL: WORKS OUT OF THE BOX WITH RAW SOCKETS</text>
+
+  <!-- Left: Command Frame Format Table -->
+  <g transform="translate(35, 45)">
+    <rect width="500" height="275" rx="8" fill="#131F33" stroke="#38BDF8" stroke-width="1"/>
+    <text x="18" y="24" fill="#FFFFFF" font-family="Arial" font-size="11" font-weight="bold">PROTOCOL FRAME SPECIFICATION (PORT :4222)</text>
+
+    <!-- Command 1: PUB -->
+    <g transform="translate(15, 38)">
+      <rect width="470" height="48" rx="4" fill="#1E2D47"/>
+      <rect x="8" y="8" width="55" height="20" rx="3" fill="#0284C7"/>
+      <text x="20" y="22" fill="#FFFFFF" font-family="monospace" font-size="10" font-weight="bold">PUB</text>
+      <text x="75" y="22" fill="#38BDF8" font-family="monospace" font-size="10.5">&lt;topic&gt; &lt;raw_payload&gt;\r\n</text>
+      <text x="75" y="38" fill="#94A3B8" font-family="Arial" font-size="9">Publishes event to topic; creates WAL entry on disk.</text>
+    </g>
+
+    <!-- Command 2: SUB -->
+    <g transform="translate(15, 94)">
+      <rect width="470" height="48" rx="4" fill="#1E2D47"/>
+      <rect x="8" y="8" width="55" height="20" rx="3" fill="#4F46E5"/>
+      <text x="20" y="22" fill="#FFFFFF" font-family="monospace" font-size="10" font-weight="bold">SUB</text>
+      <text x="75" y="22" fill="#C4B5FD" font-family="monospace" font-size="10.5">&lt;topic&gt;\r\n</text>
+      <text x="75" y="38" fill="#94A3B8" font-family="Arial" font-size="9">Registers socket stream for real-time dispatch.</text>
+    </g>
+
+    <!-- Command 3: MSG -->
+    <g transform="translate(15, 150)">
+      <rect width="470" height="48" rx="4" fill="#1E2D47"/>
+      <rect x="8" y="8" width="55" height="20" rx="3" fill="#059669"/>
+      <text x="18" y="22" fill="#FFFFFF" font-family="monospace" font-size="10" font-weight="bold">MSG</text>
+      <text x="75" y="22" fill="#34D399" font-family="monospace" font-size="10.5">&lt;topic&gt; &lt;msgID&gt; &lt;payload&gt;\r\n</text>
+      <text x="75" y="38" fill="#94A3B8" font-family="Arial" font-size="9">Broker delivers message to subscriber with unique ID.</text>
+    </g>
+
+    <!-- Command 4: ACK -->
+    <g transform="translate(15, 206)">
+      <rect width="470" height="48" rx="4" fill="#1E2D47"/>
+      <rect x="8" y="8" width="55" height="20" rx="3" fill="#D97706"/>
+      <text x="18" y="22" fill="#FFFFFF" font-family="monospace" font-size="10" font-weight="bold">ACK</text>
+      <text x="75" y="22" fill="#FBBF24" font-family="monospace" font-size="10.5">&lt;topic&gt; &lt;msgID&gt;\r\n</text>
+      <text x="75" y="38" fill="#94A3B8" font-family="Arial" font-size="9">Acknowledges receipt; deletes from pendingAcks map.</text>
+    </g>
+  </g>
+
+  <!-- Right: Zero-SDK Client Integration Examples -->
+  <g transform="translate(560, 45)">
+    <rect width="500" height="275" rx="8" fill="#131F33" stroke="#34D399" stroke-width="1"/>
+    <text x="18" y="24" fill="#FFFFFF" font-family="Arial" font-size="11" font-weight="bold">CONNECT FROM ANY TOOL WITHOUT INSTALLING PACKAGES</text>
+
+    <!-- Bash / Netcat -->
+    <g transform="translate(15, 38)">
+      <rect width="470" height="60" rx="4" fill="#0D1624" stroke="#1E2E47" stroke-width="1"/>
+      <text x="12" y="20" fill="#38BDF8" font-family="Arial" font-size="10" font-weight="bold">Bash / Netcat (Single-line publish):</text>
+      <text x="12" y="42" fill="#FFFFFF" font-family="monospace" font-size="10">echo "PUB telemetry {\"temp\":22}" | nc host 4222</text>
+    </g>
+
+    <!-- Python standard socket -->
+    <g transform="translate(15, 108)">
+      <rect width="470" height="85" rx="4" fill="#0D1624" stroke="#1E2E47" stroke-width="1"/>
+      <text x="12" y="20" fill="#34D399" font-family="Arial" font-size="10" font-weight="bold">Python (Standard library socket - No pip dependencies):</text>
+      <text x="12" y="40" fill="#94A3B8" font-family="monospace" font-size="9.5">import socket</text>
+      <text x="12" y="56" fill="#FFFFFF" font-family="monospace" font-size="9.5">s = socket.create_connection(('127.0.0.1', 4222))</text>
+      <text x="12" y="72" fill="#FFFFFF" font-family="monospace" font-size="9.5">s.sendall(b"SUB telemetry\r\n")</text>
+    </g>
+
+    <!-- C / Rust / Embedded -->
+    <g transform="translate(15, 203)">
+      <rect width="470" height="55" rx="4" fill="#0D1624" stroke="#1E2E47" stroke-width="1"/>
+      <text x="12" y="20" fill="#818CF8" font-family="Arial" font-size="10" font-weight="bold">C / Rust / Go / Microcontrollers:</text>
+      <text x="12" y="40" fill="#94A3B8" font-family="Arial" font-size="9.5">Plain POSIX write() &amp; read(). No Kafka .jar, no librdkafka C bindings!</text>
+    </g>
+  </g>
+</svg>
