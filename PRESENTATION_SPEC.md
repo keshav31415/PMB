@@ -56,17 +56,14 @@ Do **NOT** generate plain, unstyled PowerPoint files using basic bullet points. 
 +-------------------------------------------------------------------------+
 ```
 
-### The 2–3 Slide Iteration Workflow
-1. **Never build all slides at once**. Build or refine **2 to 3 slides at a time**.
-2. **Step 1**: Write or update the diagram SVGs in `docs/` with explicit fills and high-contrast text.
-3. **Step 2**: Update `scratch/generate_first3_slides.js` (or next slide batch generator) using `pptxgenjs` with `pptx.layout = 'LAYOUT_WIDE'`.
-4. **Step 3**: Run the generator and export script:
+### Complete Production Pipeline
+1. **SVG Assets**: `scripts/presentation/generate_custom_svgs.js` generates `docs/slide1_topology.svg` through `docs/slide8_wire_protocol.svg`.
+2. **Deck Generator**: `scripts/presentation/generate_all_slides.js` builds all 10 slides cleanly into `PMB_Architecture_Pitch.pptx` using `pptxgenjs` with `LAYOUT_WIDE`.
+3. **Execution**:
    ```powershell
-   node scratch/generate_custom_svgs.js
-   node scratch/generate_first3_slides.js
-   powershell -ExecutionPolicy Bypass -File scratch/export_slides.ps1
+   npm --prefix scripts/presentation run build
    ```
-5. **Step 4**: Visually inspect the generated `docs/preview_slide_X.png` images using the image viewer / `view_file` to verify text readability, margins, and card balance before writing the next batch.
+4. **Slide Visual Exports**: Verified 1080p slide renders are exported to `docs/deck_slide_1.png` through `docs/deck_slide_10.png`.
 
 ---
 
@@ -400,13 +397,11 @@ Below is the complete 10-slide blueprint with spatial ASCII wireframes for every
 All generation scripts and assets are stored and ready in the repository:
 
 1. **`docs/`**:
-   - `slide1_topology.svg`: Custom high-contrast vector diagram for Slide 1
-   - `slide2_problem.svg`: Dual comparative failure pipelines for Slide 2
-   - `slide3_solution.svg`: Internal 5-stage execution pipeline for Slide 3
-   - `preview_slide_1.png` to `preview_slide_3.png`: Exported 1080p slide renders
-2. **`scratch/`**:
-   - `generate_custom_svgs.js`: Generates the SVG assets with proper colors and cards
-   - `generate_first3_slides.js`: Uses `pptxgenjs` with `LAYOUT_WIDE` to generate `PMB_Architecture_Pitch.pptx`
-   - `export_slides.ps1`: Headless PowerPoint COM script that exports slides to 1080p PNGs
+   - `slide1_topology.svg` to `slide8_wire_protocol.svg`: Custom high-contrast vector diagrams
+   - `deck_slide_1.png` to `deck_slide_10.png`: Exported 1080p slide renders
+2. **`scripts/presentation/`**:
+   - `generate_custom_svgs.js`: Generates all SVG assets with proper colors and cards
+   - `generate_all_slides.js`: Uses `pptxgenjs` with `LAYOUT_WIDE` to generate `PMB_Architecture_Pitch.pptx`
+   - `export_slides.ps1`: Headless PowerPoint COM script that exports all 10 slides to 1080p PNGs
 3. **Presentation Output**:
    - `PMB_Architecture_Pitch.pptx`: The generated PowerPoint file in the project root
