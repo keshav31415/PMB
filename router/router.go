@@ -121,7 +121,15 @@ func (r *Router) Unsubscribe(topic, clientID string) {
 	r.ackMu.Unlock()
 }
 
+
+func (r *Router) HasSubscribers(topic string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.subs[topic]) > 0
+}
+
 func (r *Router) Route(topic, msgID, payload string) {
+
 	r.mu.RLock()
 	subs, ok := r.subs[topic]
 	// Snapshot active subscribers to avoid lock contention during channel dispatch

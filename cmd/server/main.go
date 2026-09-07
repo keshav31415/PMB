@@ -70,12 +70,29 @@ func main() {
 		log.Fatalf("failed to start server on %s: %v", addr, err)
 	}
 
-	// 6. Re-queue recovered messages into the router
-	for _, msgs := range pending {
-		for _, m := range msgs {
-			r.Route(m.Topic, m.ID, m.Payload)
+	// 6. Wait for subscribers to connect before delivering recovered messages
+	go func() {
+		for {
+			allRouted := true
+			for topic, msgs := range pending {
+				if len(msgs) == 0 {
+					continue
+				}
+				if r.HasSubscribers(topic) {
+					for _, m := range msgs {
+						r.Route(topic, m.ID, m.Payload)
+					}
+					pending[topic] = nil
+				} else {
+					allRouted = false
+				}
+			}
+			if allRouted {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
 		}
-	}
+	}()
 
 	fmt.Println("=====================================================")
 	fmt.Printf(" Persistent Message Broker (PMB) running on port %s\n", *port)
