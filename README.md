@@ -1,5 +1,5 @@
-# PMB: Persistent Message Broker 🚀
-### *Ultra-Lightweight, Crash-Resilient Pub/Sub Engine for Edge & MicroVM Infrastructure*
+# PMB: Persistent Message Broker
+### Ultra-Lightweight, Crash-Resilient Pub/Sub Engine for Edge & MicroVM Infrastructure
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat)](https://github.com/keshav31415/PMB)
@@ -7,40 +7,40 @@
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20(stdlib%20only)-orange?style=flat)](go.mod)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
 
-**PMB** is an ultra-compact, high-durability message broker built from scratch in standard Go with **zero external dependencies**. Engineered specifically for **resource-constrained edge nodes, IoT gateways, microVMs, and hypervisor control-planes** (e.g., Nutanix AHV/AOS, AWS Firecracker), PMB delivers the durability of enterprise message queues at a fraction of their resource footprint.
+**PMB** is a compact, high-durability message broker built from scratch in standard Go with **zero external dependencies**. Engineered specifically for resource-constrained edge nodes, IoT gateways, microVMs, and hypervisor control-planes (e.g., Nutanix AHV/AOS, AWS Firecracker), PMB delivers persistent message queues with a minimal resource footprint.
 
 ---
 
-## 🌟 Why PMB?
+## Why PMB?
 
-In edge infrastructure and microVM appliances, engineers traditionally face an impossible trade-off:
+In edge infrastructure and microVM appliances, engineers typically face a trade-off:
 
-1. **Enterprise Message Brokers (Apache Kafka / RabbitMQ):** Full persistence and delivery guarantees, but require heavy JVM/Erlang runtimes, consume 500+ MB of RAM at idle, take 10+ seconds to boot, and risk host out-of-disk failures with static multi-day retention.
-2. **Ephemeral IPC (gRPC / ZeroMQ):** Sub-millisecond latency and tiny footprints, but **zero persistence**. Sudden power drops or process restarts cause all in-flight messages and critical state transitions to be lost forever.
+1. **Enterprise Message Brokers (Apache Kafka / RabbitMQ):** Full persistence and delivery guarantees, but require JVM/Erlang runtimes, consume significant RAM at idle, have slower boot times, and can cause host out-of-disk failures with static multi-day retention.
+2. **Ephemeral IPC (gRPC / ZeroMQ):** Sub-millisecond latency and tiny footprints, but zero persistence. Sudden power drops or process restarts cause all in-flight messages and critical state transitions to be lost.
 
-**PMB bridges this chasm:** It combines the **7 MB RAM footprint and sub-10ms startup of lightweight IPC** with the **hardened disk durability of enterprise Write-Ahead Logs (`fsync`)**.
+PMB addresses this by combining a low memory footprint (around 7 MB RAM) and fast startup times with disk durability via Write-Ahead Logs (`fsync`).
 
 ---
 
-## ✨ Key Features & Guarantees
+## Key Features
 
-* **🛡️ Bulletproof Physical Durability:** Every `AT_LEAST_ONCE` message is flushed to disk via an append-only Write-Ahead Log (WAL) with `fsync()` before network handoff.
-* **⚡ Leader/Follower Group Commit:** Automatically amortizes expensive disk flushes across concurrent producers, scaling durable write throughput from ~1,000 to **>30,000 msgs/sec** without artificial sleep windows.
-* **🎯 Flexible Delivery Semantics:**
+* **Physical Durability:** Every `AT_LEAST_ONCE` message is flushed to disk via an append-only Write-Ahead Log (WAL) with `fsync()` before network handoff.
+* **Group Commit:** Automatically amortizes disk flushes across concurrent producers, scaling durable write throughput to >30,000 msgs/sec.
+* **Flexible Delivery Semantics:**
   * `AT_MOST_ONCE`: Fire-and-forget delivery for high-frequency telemetry and sensor metrics.
   * `AT_LEAST_ONCE`: Acknowledged delivery tracked in-memory with automatic 2-second retry sweeper until confirmed.
-* **🧹 Dual-Dial Retention & Delta Deduplication:**
-  * **Dial 1 (Interest-Driven):** Reclaims disk space the instant all active subscribers acknowledge a message.
-  * **Dial 2 (Circuit Breaker):** Protects root disk partitions from dead consumers with configurable age-based garbage collection.
-  * **Delta Deduplication:** Replaces repetitive log payloads with lightweight `@ref:<id>` pointers, reducing disk consumption by up to 85%.
-* **🔌 Zero-SDK Wire Protocol:** Simple newline-delimited ASCII protocol over raw TCP (`:4222`). Any programming language or command-line utility (`nc`, `socat`) can publish and subscribe out-of-the-box.
-* **🔒 Production Edge Hardening:** 1 MB bounded line parsing (OOM defense), 50ms slow-consumer backpressure grace window, subscriber duplicate suppression, and cross-platform file locking resilience.
+* **Retention & Deduplication:**
+  * **Interest-Driven:** Reclaims disk space when all active subscribers acknowledge a message.
+  * **Age-Based GC:** Protects root disk partitions from dead consumers with configurable age-based garbage collection.
+  * **Delta Deduplication:** Replaces repetitive log payloads with lightweight `@ref:<id>` pointers to reduce disk consumption.
+* **Zero-SDK Protocol:** Simple newline-delimited ASCII protocol over raw TCP (`:4222`). Any programming language or command-line utility (`nc`, `socat`) can publish and subscribe out-of-the-box.
+* **Edge Hardening:** 1 MB bounded line parsing (OOM defense), 50ms slow-consumer backpressure grace window, subscriber duplicate suppression, and cross-platform file locking resilience.
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
-PMB is organized into three lock-isolated, modular layers:
+PMB is organized into three lock-isolated layers:
 
 | Layer | Component | Description |
 | :--- | :--- | :--- |
@@ -62,15 +62,15 @@ The sequence diagram below illustrates how an `AT_LEAST_ONCE` message flows thro
 
 ---
 
-## 📊 Empirical Benchmarks
+## Empirical Benchmarks
 
 *Measured on standard workstation hardware (Windows 11 / WSL2 Linux, SSD storage):*
 
 | Metric | Apache Kafka | RabbitMQ | **PMB (Our Broker)** |
 | :--- | :--- | :--- | :--- |
 | **Runtime Requirement** | JVM (Java 17+) | Erlang VM (BEAM) | **Zero (Native Static Binary)** |
-| **Binary Size** | $> 120$ MB (plus JRE) | $> 50$ MB (plus Erlang) | **3.78 MB** *(98% smaller)* |
-| **Idle Memory (RAM)** | $\approx 450 - 800$ MB | $\approx 80 - 150$ MB | **7.18 MB** *(98.5% less RAM)* |
+| **Binary Size** | $> 120$ MB (plus JRE) | $> 50$ MB (plus Erlang) | **3.78 MB** |
+| **Idle Memory (RAM)** | $\approx 450 - 800$ MB | $\approx 80 - 150$ MB | **7.18 MB** |
 | **Cold Boot Time** | $8.0 - 15.0$ seconds | $3.0 - 6.0$ seconds | **$< 10$ milliseconds** |
 | **Durable Ingress Speed** | High (partitioned) | Moderate | **30,000+ msgs/sec** (Group Commit) |
 | **Single-Message Latency** | $2.0 - 5.0$ ms | $1.0 - 3.0$ ms | **$< 0.5$ ms (519 µs roundtrip)** |
@@ -78,7 +78,7 @@ The sequence diagram below illustrates how an `AT_LEAST_ONCE` message flows thro
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### 1. Build Binaries
 ```bash
@@ -106,7 +106,7 @@ go build -o bin/subscriber ./cmd/subscriber
 
 ---
 
-## 🌐 Zero-SDK Client Integration
+## Client Integration
 
 Because PMB uses a clean newline-delimited ASCII protocol over raw TCP, you can integrate with it from any language or shell environment without downloading any third-party SDK.
 
@@ -204,7 +204,7 @@ func main() {
 
 ---
 
-## 📡 Wire Protocol Specification
+## Wire Protocol Specification
 
 All communication occurs over standard TCP using `\n`-terminated ASCII strings:
 
@@ -220,7 +220,7 @@ All communication occurs over standard TCP using `\n`-terminated ASCII strings:
 
 ---
 
-## ⚙️ Broker Configuration & CLI Options
+## Configuration & CLI Options
 
 The server binary accepts the following operational flags:
 
@@ -239,7 +239,7 @@ Persistent logs are stored locally in the `logs/` directory as `logs/<topic>.log
 
 ---
 
-## 🔬 Diagnostics & Benchmarking Suite (`cmd/bench`)
+## Diagnostics & Benchmarking Suite
 
 PMB includes a unified, modular benchmarking and diagnostic tool designed to test performance across multiple dimensions:
 
@@ -286,7 +286,7 @@ go run ./cmd/bench -n 5000 -c 4 -subs 4
 
 ---
 
-## 🧪 Testing & Verification
+## Testing & Verification
 
 Run the full automated test suite, including race condition detection:
 
@@ -301,6 +301,6 @@ The test suite covers:
 
 ---
 
-## 📜 License
+## License
 
 PMB is licensed under the [MIT License](LICENSE). Open-source under permissive distribution.
