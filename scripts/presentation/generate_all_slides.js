@@ -117,7 +117,7 @@ function addHeader(slide, title, section, subheader) {
     });
 
     slide.addImage({
-        path: path.join(docsDir, 'slide1_topology.svg'),
+        path: path.join(docsDir, 'slide1_topology.png'),
         x: 6.0, y: 2.05, w: 6.33, h: 3.45
     });
 
@@ -170,7 +170,7 @@ function addHeader(slide, title, section, subheader) {
     });
 
     slide.addImage({
-        path: path.join(docsDir, 'slide2_problem.svg'),
+        path: path.join(docsDir, 'slide2_problem.png'),
         x: 1.16, y: 2.45, w: 11.0, h: 2.2
     });
 
@@ -241,7 +241,7 @@ function addHeader(slide, title, section, subheader) {
     });
 
     slide.addImage({
-        path: path.join(docsDir, 'slide3_solution.svg'),
+        path: path.join(docsDir, 'slide3_solution.png'),
         x: 1.16, y: 1.82, w: 11.0, h: 2.78
     });
 
@@ -337,7 +337,7 @@ function addHeader(slide, title, section, subheader) {
     });
 
     slide.addImage({
-        path: path.join(docsDir, 'slide4_atomic_stack.svg'),
+        path: path.join(docsDir, 'slide4_atomic_stack.png'),
         x: 1.16, y: 1.82, w: 11.0, h: 2.78
     });
 
@@ -408,7 +408,7 @@ function addHeader(slide, title, section, subheader) {
     });
 
     slide.addImage({
-        path: path.join(docsDir, 'slide5_group_commit.svg'),
+        path: path.join(docsDir, 'slide5_group_commit.png'),
         x: 1.16, y: 1.82, w: 11.0, h: 2.78
     });
 
@@ -479,7 +479,7 @@ function addHeader(slide, title, section, subheader) {
     });
 
     slide.addImage({
-        path: path.join(docsDir, 'slide6_router_delivery.svg'),
+        path: path.join(docsDir, 'slide6_router_delivery.png'),
         x: 1.16, y: 1.82, w: 11.0, h: 2.78
     });
 
@@ -550,7 +550,7 @@ function addHeader(slide, title, section, subheader) {
     });
 
     slide.addImage({
-        path: path.join(docsDir, 'slide7_compaction.svg'),
+        path: path.join(docsDir, 'slide7_compaction.png'),
         x: 1.16, y: 1.82, w: 11.0, h: 2.78
     });
 
@@ -621,7 +621,7 @@ function addHeader(slide, title, section, subheader) {
     });
 
     slide.addImage({
-        path: path.join(docsDir, 'slide8_wire_protocol.svg'),
+        path: path.join(docsDir, 'slide8_wire_protocol.png'),
         x: 1.16, y: 1.82, w: 11.0, h: 2.78
     });
 

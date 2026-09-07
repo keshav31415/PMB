@@ -58,12 +58,13 @@ Do **NOT** generate plain, unstyled PowerPoint files using basic bullet points. 
 
 ### Complete Production Pipeline
 1. **SVG Assets**: `scripts/presentation/generate_custom_svgs.js` generates `docs/slide1_topology.svg` through `docs/slide8_wire_protocol.svg`.
-2. **Deck Generator**: `scripts/presentation/generate_all_slides.js` builds all 10 slides cleanly into `PMB_Architecture_Pitch.pptx` using `pptxgenjs` with `LAYOUT_WIDE`.
-3. **Execution**:
+2. **Universal PNG Rasterization**: `scripts/presentation/rasterize_svgs.ps1` rasterizes SVGs into 2x high-res PNGs (`docs/slide1_topology.png` through `docs/slide8_wire_protocol.png`) via headless Edge. This ensures 100% cross-platform compatibility across Microsoft PowerPoint, LibreOffice, and Google Slides without SVG rendering corruption.
+3. **Deck Generator**: `scripts/presentation/generate_all_slides.js` builds all 10 slides cleanly into `PMB_Architecture_Pitch.pptx` using `pptxgenjs` with `LAYOUT_WIDE`.
+4. **Execution**:
    ```powershell
    npm --prefix scripts/presentation run build
    ```
-4. **Slide Visual Exports**: Verified 1080p slide renders are exported to `docs/deck_slide_1.png` through `docs/deck_slide_10.png`.
+5. **Slide Visual Exports**: Verified 1080p slide renders are exported to `docs/deck_slide_1.png` through `docs/deck_slide_10.png`.
 
 ---
 
